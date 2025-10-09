@@ -64,4 +64,4 @@ class PhysicsCore(nn.Module):
         if V_up.shape[0] > max_vert:
             idx = torch.randperm(V_up.shape[0], device=V_up.device)[:max_vert]
             V_up = V_up[idx]
-        self.register_buffer('V_up', V_up)%
+        self.register_buffer('V_up', V_up)

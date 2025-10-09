@@ -4,6 +4,7 @@ import torch, os, trimesh
 from models.geo_encoder import FNOGeoEncoder
 from models.physics_core import PhysicsCore
 from models.losses import compute_loss
+from pytorch3d.transforms import so3_exponential_map
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -24,6 +25,11 @@ opt = torch.optim.AdamW(list(enc_up.parameters())+list(enc_low.parameters())+lis
 
 # 3. 训练
 for step in range(3001):
+    # if (step+1) % 10 == 0:
+    #     print("### step: ", step + 1)
+    #     torch.cuda.empty_cache()
+
+
     opt.zero_grad()
     # 几何编码
     z_up  = enc_up(V_up)
@@ -40,10 +46,10 @@ for step in range(3001):
                               hinge_dir_R=torch.tensor([0.,0.,1.], device=device))
     loss.backward()
     opt.step()
-    if step%500==0:
+    if step % 10==0:
         print(f'step {step}: loss={loss.item():.4f}', logs)
         # 导出
         T = torch.eye(4, device=device)
         T[:3,:3] = R; T[:3,3] = t
         final_v = (torch.cat([V_low, torch.ones((V_low.shape[0],1), device=device)], dim=1) @ T.T)[:,:3]
-        trimesh.Trimesh(vertices=final_v.cpu().numpy(), faces=lower.faces).export(f'data/lower_bite_{step}.ply')
+        trimesh.Trimesh(vertices=final_v.detach().cpu().numpy(), faces=lower.faces).export(f'data/lower_bite_{step}.ply')

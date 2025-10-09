@@ -39,7 +39,7 @@ class SpectralConv1d(nn.Module):
     def forward(self, x):
         # x: (b,c,n)
         b, c, n = x.shape
-        x_ft = rfft(x, n=self.modes, dim=-1)
+        x_ft = torch.fft.rfft(x, n=n, dim=-1)
         out_ft = torch.zeros(b, self.weights.shape[1], x_ft.shape[-1], dtype=torch.cfloat, device=x.device)
         out_ft[:, :, :self.modes] = torch.einsum("bcm,com->bom", x_ft[:, :, :self.modes], self.weights)
         x = irfft(out_ft, n=n, dim=-1)

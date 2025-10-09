@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from pytorch3d.transforms import so3_exponential_map
+import math
 
 class SIREN(nn.Module):
     def __init__(self, in_dim, hidden, out_dim, omega=30.):
@@ -21,8 +22,7 @@ class SIREN(nn.Module):
         with torch.no_grad():
             for m in self.net:
                 if isinstance(m, nn.Linear):
-                    nn.init.uniform_(m.weight, -torch.sqrt(6./m.in_features)/self.omega,
-                                     torch.sqrt(6./m.in_features)/self.omega)
+                    nn.init.uniform_(m.weight, -math.sqrt(6./m.in_features)/self.omega, math.sqrt(6./m.in_features)/self.omega)
     def forward(self, x):
         return self.net(self.omega * x)
 
@@ -49,8 +49,19 @@ class PhysicsCore(nn.Module):
         return theta, t
 
     @torch.no_grad()
-    def sdf_up(self, x):
-        # 简易 SDF：到上颌顶点的最近距离
-        return torch.cdist(x.unsqueeze(0), self.V_up.unsqueeze(0)).squeeze(0).min(dim=1)[0]
-    def set_V_up(self, V_up):
-        self.register_buffer('V_up', V_up)
+    def sdf_up(self, x_c, chunk=4000):
+        """
+        分块计算 x_c 到 V_up 的最近距离，内存 O(chunk×N)
+        """
+        n_up = self.V_up.shape[0]
+        dist = torch.empty(x_c.shape[0], device=x_c.device)
+        for i in range(0, x_c.shape[0], chunk):
+            end = min(i + chunk, x_c.shape[0])
+            dist[i:end] = torch.cdist(x_c[i:end], self.V_up).min(dim=1)[0]
+        return dist
+
+    def set_V_up(self, V_up, max_vert=30000):
+        if V_up.shape[0] > max_vert:
+            idx = torch.randperm(V_up.shape[0], device=V_up.device)[:max_vert]
+            V_up = V_up[idx]
+        self.register_buffer('V_up', V_up)%

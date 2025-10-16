@@ -38,8 +38,8 @@ opt = torch.optim.AdamW(params, weight_decay=1e-4)
 # lambda_bc = 20.0      # 边界条件损失权重
 # lambda_geo = 100.0     # 几何损失权重
 
-lambda_pde = 0.005      # 降低PDE损失权重
-lambda_bc = 0.001      # 边界条件损失权重
+lambda_pde = 0.0001      # 降低PDE损失权重
+lambda_bc = 0.0001      # 边界条件损失权重
 lambda_geo = 1.0     # 几何损失权重
 
 # 3. PINN训练
@@ -78,6 +78,7 @@ for step in range(5001):
     # 3. 边界条件损失
     bc_loss = compute_boundary_loss(V_up, V_low, pinn_net, theta, t)
 
+    print("geo_loss:{} pde_loss:{} bc_loss:{}".format(geo_loss.item(), pde_loss.item(), bc_loss.item()))
     # 总损失
     total_loss = lambda_geo * geo_loss + lambda_pde * pde_loss + lambda_bc * bc_loss
 
@@ -88,7 +89,8 @@ for step in range(5001):
     if step > 0 and step % 10 == 0:
         opt.param_groups[3]['lr'] *= 0.8
 
-    if step % 10 == 0:
+    # if step % 10 == 0:
+    if 1:
         print(f'step {step}: total_loss={total_loss.item():.4f}, '
               f'geo_loss={geo_loss.item():.4f}, '
               f'pde_loss={pde_loss.item():.4f}, '

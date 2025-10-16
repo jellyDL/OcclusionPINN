@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from pytorch3d.transforms import so3_exponential_map
 from pytorch3d.structures import Meshes, Pointclouds
 from pytorch3d.loss import point_mesh_face_distance
+from pytorch3d.ops import sample_points_from_meshes, knn_points  # 新增
 
 def mesh_sdf_pytorch3d(pts, verts, faces):
     """
@@ -18,18 +19,93 @@ def mesh_sdf_pytorch3d(pts, verts, faces):
     sq_dist = point_mesh_face_distance(mesh, pcls)
     return sq_dist.sqrt()
 
+def approx_signed_distance_to_mesh(pts, verts, faces, nsamples=16000):
+    """
+    基于网格表面采样 + 法向的带符号距离近似：
+    - 幅值：最近采样点欧氏距离
+    - 符号：与最近采样点法向的点乘符号（法向外指）
+    """
+    device = pts.device
+    mesh = Meshes(verts=[verts], faces=[faces.long()])
+
+    nsamples = int(nsamples)
+    # 采样表面点与法向 (1, S, 3)
+    surf_pts, surf_normals = sample_points_from_meshes(mesh, nsamples, return_normals=True)
+    surf_pts = surf_pts[0]                      # (S, 3)
+    surf_normals = F.normalize(surf_normals[0], dim=-1)  # (S, 3)
+
+    # KNN 查找每个查询点最近采样点
+    p = pts.unsqueeze(0)                        # (1, N, 3)
+    d2, idx, nn = knn_points(p, surf_pts.unsqueeze(0), K=1, return_nn=True)
+    nn_pts = nn[0, :, 0, :]                     # (N, 3)
+    nn_normals = surf_normals[idx[0, :, 0]]     # (N, 3)
+
+    # 用法向点乘决定符号（外法向：正=外部，负=内部）
+    vec = pts - nn_pts                          # (N, 3)
+    signed_dir = (vec * nn_normals).sum(dim=-1) # (N,)
+    dist = torch.sqrt(d2[0, :, 0] + 1e-12)      # (N,)
+    sdf = dist * torch.sign(signed_dir + 1e-12) # (N,)
+    return sdf
 
 def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir_R,
-                 lambda_pen=30.0, lambda_cont=8.0, lambda_axis=0.3, lambda_orth=0.05):
-    # 1. 穿透损失 (严格约束穿透)
-    sdf_up = mesh_sdf_pytorch3d(mandible_v, V_up, F_up)          # (N_low,)
-    pen = torch.abs(sdf_up).mean()
+                 lambda_pen=10.0, lambda_cont=0.1, lambda_axis=0.3, lambda_orth=0.05):
+    # 1. 穿透损失 (严格约束穿透：只惩罚负SDF)
+    # sdf_up < 0 表示下颌点位于上颌网格内
+    sdf_up = approx_signed_distance_to_mesh(
+        mandible_v, V_up, F_up,
+        nsamples=min(20000, max(10000, V_up.shape[0] * 4))
+    )          # (N_low,)
+    neg_depth = F.relu(-sdf_up)                 # 仅穿透深度
+    pen = (neg_depth * neg_depth).mean()        # 深穿透二次惩罚
 
-    # 2. 接触均匀
-    contact = sample_contact_points(V_up, mandible_v, delta=0.05)  # (K,3)
+    # 2. 接触均匀（左右分区分别均匀，避免偏侧）
+    contact = sample_contact_points(V_up, mandible_v, delta=0.1)  # (K,3)
+    
     if contact.shape[0] > 1:
-        mu = contact.mean(0)
-        cont = torch.var(contact - mu, unbiased=False).sum()
+        # 用上颌点集估计单颌正中平面：通过PCA求左右方向法向量
+        ref = V_up
+        center = ref.mean(dim=0)
+        X = ref - center
+        try:
+            # 已中心化，避免重复中心化
+            _, _, Vp = torch.pca_lowrank(X, q=3, center=False)
+            normal_lr = F.normalize(Vp[:, 0], dim=0)  # 左右方向最大方差轴
+        except Exception:
+            # 退化时用协方差的主特征向量
+            cov = X.T @ X
+            eigvals, eigvecs = torch.linalg.eigh(cov)
+            normal_lr = F.normalize(eigvecs[:, -1], dim=0)
+
+        # 以该平面区分左右：符号为 (p - center)·normal_lr
+        signed = (contact - center) @ normal_lr
+        left_mask = signed < 0
+        right_mask = ~left_mask
+
+        zero = torch.tensor(0.0, device=V_up.device)
+        print("contact[left_mask]: ", len(contact[left_mask]))
+        print("contact[right_mask]: ", len(contact[right_mask]))
+        if 1: # 保存接触点 
+            if not hasattr(compute_loss, "_iter"):
+                compute_loss._iter = 0
+            iter = compute_loss._iter
+            compute_loss._iter += 1
+            print("contact ",len(contact))
+            contact_left_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_left"+str(compute_loss._iter )+".txt"
+            for i in range(len(contact[left_mask])):
+                with open(contact_left_path, "a") as f:
+                    f.write(f"{contact[left_mask][i,0].item()} {contact[left_mask][i,1].item()} {contact[left_mask][i,2].item()}\n")
+        
+            contact_right_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_right"+str(compute_loss._iter )+".txt"
+            for i in range(len(contact[right_mask])):
+                with open(contact_right_path, "a") as f:
+                    f.write(f"{contact[right_mask][i,0].item()} {contact[right_mask][i,1].item()} {contact[right_mask][i,2].item()}\n")
+        
+        cont_left = torch.var(contact[left_mask], dim=0, unbiased=False).sum() if left_mask.any() else zero
+        cont_right = torch.var(contact[right_mask], dim=0, unbiased=False).sum() if right_mask.any() else zero
+        print("cont_left:", cont_left.item(), "cont_right:", cont_right.item()) 
+        cont = cont_left + cont_right
+        if left_mask.sum() < 5 or right_mask.sum() < 5:  # 检查接触点数量
+            print("Warning: 左右接触点数量不足，可能导致损失波动大。")
     else:
         cont = torch.tensor(0., device=V_up.device)
 
@@ -56,7 +132,7 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
     loss = lambda_pen*pen + lambda_cont*cont + lambda_axis*axis
     return loss, {'pen':pen, 'cont':cont, 'axis':axis}
 
-def sample_contact_points(V_up, V_low, delta=0.01, max_pts=15000, chunk=3000):
+def sample_contact_points(V_up, V_low, delta=0.1, max_pts=15000, chunk=3000):
     """
     降采样 + 分块 cdist，内存 O(chunk×M)
     返回 (K,3)  K≤max_pts
@@ -77,6 +153,17 @@ def sample_contact_points(V_up, V_low, delta=0.01, max_pts=15000, chunk=3000):
 
     # 3. 筛选接触点
     mask = dist < delta
+    contact = V_up_s[mask]
+    if 1: # 保存接触点 
+        if not hasattr(sample_contact_points, "_iter"):
+            sample_contact_points._iter = 0
+        iter = sample_contact_points._iter
+        sample_contact_points._iter += 1
+        print("contact ",len(contact))
+        contact_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_"+str(sample_contact_points._iter )+".txt"
+        for i in range(len(contact)):
+            with open(contact_path, "a") as f:
+                f.write(f"{contact[i,0].item()} {contact[i,1].item()} {contact[i,2].item()}\n")
     contact = V_up_s[mask]
     return contact
 

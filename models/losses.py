@@ -5,6 +5,8 @@ from pytorch3d.transforms import so3_exponential_map
 from pytorch3d.structures import Meshes, Pointclouds
 from pytorch3d.loss import point_mesh_face_distance
 from pytorch3d.ops import sample_points_from_meshes, knn_points  # 新增
+import numpy as np
+import open3d as o3d
 
 def mesh_sdf_pytorch3d(pts, verts, faces):
     """
@@ -47,6 +49,144 @@ def approx_signed_distance_to_mesh(pts, verts, faces, nsamples=16000):
     sdf = dist * torch.sign(signed_dir + 1e-12) # (N,)
     return sdf
 
+def mirror_points_across_plane(points: np.ndarray, n: np.ndarray, c: np.ndarray) -> np.ndarray:
+    # 将点关于平面 (n, c) 镜像：p' = p - 2 * ((p-c)·n) n
+    v = points - c
+    d = v @ n
+    return points - 2.0 * d[:, None] * n[None, :]
+
+def symmetry_error(points: np.ndarray, n: np.ndarray, c: np.ndarray, kdtree: o3d.geometry.KDTreeFlann) -> float:
+    """最近邻RMS距离作为对称误差（复用KDTree以便多次评估）"""
+    mirrored = mirror_points_across_plane(points, n, c)
+    dists2 = []
+    for q in mirrored:
+        _, _, dist2 = kdtree.search_knn_vector_3d(q, 1)
+        dists2.append(dist2[0])
+    return float(np.sqrt(np.mean(dists2)))
+
+
+def optimize_offset_along_normal(points: np.ndarray, n: np.ndarray, c0: np.ndarray, kdtree: o3d.geometry.KDTreeFlann):
+    """沿法向对平面位置做1D黄金分割搜索，最小化对称误差"""
+    n = n / (np.linalg.norm(n) + 1e-12)
+    proj = points @ n
+    tmin = float(proj.min() - c0 @ n)
+    tmax = float(proj.max() - c0 @ n)
+    # 黄金分割
+    phi = 0.5 * (np.sqrt(5.0) - 1.0)
+    a, b = tmin, tmax
+    c1 = b - phi * (b - a)
+    c2 = a + phi * (b - a)
+    f1 = symmetry_error(points, n, c0 + c1 * n, kdtree)
+    f2 = symmetry_error(points, n, c0 + c2 * n, kdtree)
+    for _ in range(40):
+        if f1 > f2:
+            a = c1
+            c1 = c2
+            f1 = f2
+            c2 = a + phi * (b - a)
+            f2 = symmetry_error(points, n, c0 + c2 * n, kdtree)
+        else:
+            b = c2
+            c2 = c1
+            f2 = f1
+            c1 = b - phi * (b - a)
+            f1 = symmetry_error(points, n, c0 + c1 * n, kdtree)
+    t_best = 0.5 * (a + b)
+    c_best = c0 + t_best * n
+    err_best = symmetry_error(points, n, c_best, kdtree)
+    return c_best, err_best
+
+# 新增：在初始法向附近做小角度扰动，联动优化偏移，选最优
+def refine_normal(points: np.ndarray, n0: np.ndarray, c0: np.ndarray, kdtree: o3d.geometry.KDTreeFlann):
+    n0 = n0 / (np.linalg.norm(n0) + 1e-12)
+    # 选取与 n0 不共线的一条轴作为切向
+    world = np.array([0.0, 0.0, 1.0], dtype=float)
+    if abs(np.dot(world, n0)) > 0.9:
+        world = np.array([0.0, 1.0, 0.0], dtype=float)
+    u = world - n0 * np.dot(world, n0)
+    u = u / (np.linalg.norm(u) + 1e-12)
+    v = np.cross(n0, u)
+    v = v / (np.linalg.norm(v) + 1e-12)
+
+    def rotate_vec(n, axis, ang):
+        axis = axis / (np.linalg.norm(axis) + 1e-12)
+        c, s = np.cos(ang), np.sin(ang)
+        return n * c + np.cross(axis, n) * s + axis * np.dot(axis, n) * (1.0 - c)
+
+    angles = np.deg2rad(np.array([-10.0, -5.0, 0.0, 5.0, 10.0], dtype=float))
+    best_n, best_c, best_err = n0, c0, symmetry_error(points, n0, c0, kdtree)
+    for ax in (u, v):
+        for a in angles:
+            n_cand = rotate_vec(n0, ax, a)
+            n_cand = n_cand / (np.linalg.norm(n_cand) + 1e-12)
+            c_opt, err = optimize_offset_along_normal(points, n_cand, c0, kdtree)
+            if err < best_err:
+                best_n, best_c, best_err = n_cand, c_opt, err
+    return best_n, best_c, best_err
+
+
+# 新增：在初始法向附近做小角度扰动，联动优化偏移，选最优
+def refine_normal_opt(points: np.ndarray, n0: np.ndarray, c0: np.ndarray, kdtree: o3d.geometry.KDTreeFlann):
+    n0 = n0 / (np.linalg.norm(n0) + 1e-12)
+    # 选取与 n0 不共线的一条轴作为切向
+    world = np.array([0.0, 0.0, 1.0], dtype=float)
+    if abs(np.dot(world, n0)) > 0.9:
+        world = np.array([0.0, 1.0, 0.0], dtype=float)
+    u = world - n0 * np.dot(world, n0)
+    u = u / (np.linalg.norm(u) + 1e-12)
+    v = np.cross(n0, u)
+    v = v / (np.linalg.norm(v) + 1e-12)
+
+    def rotate_vec(n, axis, ang):
+        axis = axis / (np.linalg.norm(axis) + 1e-12)
+        c, s = np.cos(ang), np.sin(ang)
+        return n * c + np.cross(axis, n) * s + axis * np.dot(axis, n) * (1.0 - c)
+
+    angles = np.deg2rad(np.array([-10.0, -5.0, 0.0, 5.0, 10.0], dtype=float))
+    best_n, best_c, best_err = n0, c0, symmetry_error(points, n0, c0, kdtree)
+    for ax in (u, v):
+        for a in angles:
+            n_cand = rotate_vec(n0, ax, a)
+            n_cand = n_cand / (np.linalg.norm(n_cand) + 1e-12)
+            c_opt, err = optimize_offset_along_normal(points, n_cand, c0, kdtree)
+            if err < best_err:
+                best_n, best_c, best_err = n_cand, c_opt, err
+    return best_n, best_c, best_err
+
+def estimate_mid_plane(points: np.ndarray):  # 估计单颌中切平面
+    """估计切分单颌左右的中切平面：先选主轴，再优化偏移与小角度法向"""
+    # 兼容 torch.Tensor（含 GPU），统一转为 CPU numpy
+    if isinstance(points, torch.Tensor):
+        pts_np = points.detach().cpu().numpy()
+    else:
+        pts_np = np.asarray(points)
+
+    center = pts_np.mean(axis=0)
+    pts0 = pts_np - center
+    cov = np.cov(pts0.T)
+    eigvals, eigvecs = np.linalg.eigh(cov)  # 列为特征向量（升序）
+    candidates = [eigvecs[:, i] / (np.linalg.norm(eigvecs[:, i]) + 1e-12) for i in range(3)]
+
+    # 预构建KDTree（稳定写法）
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(pts_np)
+    kdtree = o3d.geometry.KDTreeFlann(pcd)
+
+    # 先在三个主轴上各自优化偏移，挑最优
+    best_n, best_c, best_err = None, None, 1e18
+    for n in candidates:
+        c_opt, err = optimize_offset_along_normal(pts_np, n, center, kdtree)
+        if err < best_err:
+            best_n, best_c, best_err = n, c_opt, err
+
+    # 在最优法向附近做小角度离散搜索并联动优化偏移
+    best_n, best_c, best_err = refine_normal(pts_np, best_n, best_c, kdtree)
+
+    # 方向统一（可选）
+    if best_n[0] < 0:
+        best_n = -best_n
+    return best_n, best_c, best_err
+
 def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir_R,
                  lambda_pen=10.0, lambda_cont=0.1, lambda_axis=0.3, lambda_orth=0.05):
     # 1. 穿透损失 (严格约束穿透：只惩罚负SDF)
@@ -61,50 +201,45 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
     # 2. 接触均匀（左右分区分别均匀，避免偏侧）
     contact = sample_contact_points(V_up, mandible_v, delta=0.1)  # (K,3)
     
+    # 估计中切平面并分左右
+    n, c, err = estimate_mid_plane(V_up)
+    print(f"  中切面 点 c = {c.tolist()}")
+    print(f"  中切面 法向 n = {n.tolist()}")
+    print(f"  中切面 对称误差 = {err:.4f} (均方根最近邻距离)")
+    
     if contact.shape[0] > 1:
-        # 用上颌点集估计单颌正中平面：通过PCA求左右方向法向量
-        ref = V_up
-        center = ref.mean(dim=0)
-        X = ref - center
-        try:
-            # 已中心化，避免重复中心化
-            _, _, Vp = torch.pca_lowrank(X, q=3, center=False)
-            normal_lr = F.normalize(Vp[:, 0], dim=0)  # 左右方向最大方差轴
-        except Exception:
-            # 退化时用协方差的主特征向量
-            cov = X.T @ X
-            eigvals, eigvecs = torch.linalg.eigh(cov)
-            normal_lr = F.normalize(eigvecs[:, -1], dim=0)
+        # 使用 estimate_mid_plane 返回的平面 (n, c) 区分左右
+        n_t = torch.as_tensor(n, device=V_up.device, dtype=V_up.dtype)
+        c_t = torch.as_tensor(c, device=V_up.device, dtype=V_up.dtype)
+        n_t = F.normalize(n_t, dim=0)
 
-        # 以该平面区分左右：符号为 (p - center)·normal_lr
-        signed = (contact - center) @ normal_lr
+        signed = (contact - c_t) @ n_t  # (p - c)·n
         left_mask = signed < 0
         right_mask = ~left_mask
 
         zero = torch.tensor(0.0, device=V_up.device)
-        print("contact[left_mask]: ", len(contact[left_mask]))
-        print("contact[right_mask]: ", len(contact[right_mask]))
-        if 1: # 保存接触点 
+        # print("contact[left_mask]: ", int(left_mask.sum().item()))
+        # print("contact[right_mask]: ", int(right_mask.sum().item()))
+        if 1:  # 保存接触点
             if not hasattr(compute_loss, "_iter"):
                 compute_loss._iter = 0
-            iter = compute_loss._iter
             compute_loss._iter += 1
-            print("contact ",len(contact))
-            contact_left_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_left"+str(compute_loss._iter )+".txt"
-            for i in range(len(contact[left_mask])):
-                with open(contact_left_path, "a") as f:
+            print("Contact Point Num:{} ,  Iter: {} ".format(len(contact), compute_loss._iter))
+            contact_left_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_left" + str(compute_loss._iter) + ".txt"
+            with open(contact_left_path, "a") as f:
+                for i in range(len(contact[left_mask])):
                     f.write(f"{contact[left_mask][i,0].item()} {contact[left_mask][i,1].item()} {contact[left_mask][i,2].item()}\n")
-        
-            contact_right_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_right"+str(compute_loss._iter )+".txt"
-            for i in range(len(contact[right_mask])):
-                with open(contact_right_path, "a") as f:
+
+            contact_right_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_right" + str(compute_loss._iter) + ".txt"
+            with open(contact_right_path, "a") as f:
+                for i in range(len(contact[right_mask])):
                     f.write(f"{contact[right_mask][i,0].item()} {contact[right_mask][i,1].item()} {contact[right_mask][i,2].item()}\n")
-        
+
         cont_left = torch.var(contact[left_mask], dim=0, unbiased=False).sum() if left_mask.any() else zero
         cont_right = torch.var(contact[right_mask], dim=0, unbiased=False).sum() if right_mask.any() else zero
-        print("cont_left:", cont_left.item(), "cont_right:", cont_right.item()) 
+        print("cont_left:", cont_left.item(), "cont_right:", cont_right.item())
         cont = cont_left + cont_right
-        if left_mask.sum() < 5 or right_mask.sum() < 5:  # 检查接触点数量
+        if left_mask.sum() < 5 or right_mask.sum() < 5:
             print("Warning: 左右接触点数量不足，可能导致损失波动大。")
     else:
         cont = torch.tensor(0., device=V_up.device)

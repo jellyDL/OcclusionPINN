@@ -57,11 +57,15 @@ def main():
     out_path = root / "occlusal_view.png"
 
     #如果输入参数大于3
-    if len(os.sys.argv) > 2:
+    if len(os.sys.argv) > 1:
         iter = os.sys.argv[1]
-        lower_path = "data/lower_bite_" + iter + ".ply"
+        lower_path = "data/lower_bite_" + str(int(iter)-1) + ".ply"
         cpl_path = "data/contact_points_left" + iter + ".txt"
         cpr_path = "data/contact_points_right" + iter + ".txt"
+        # 修正：确保为 Path 类型
+        lower_path = Path(lower_path)
+        cpl_path = Path(cpl_path)
+        cpr_path = Path(cpr_path)
     else:
         print("Usage: python vis_occlusion.py <lower path> <iter>")
         print("  Exp: python vis_occlusion.py lower_bite_10.ply 10")

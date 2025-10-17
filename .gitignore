@@ -1,3 +1,5 @@
 __pycache__
 *.pyc
 data/lower_bite*.ply
+data/contact_point*.txt
+

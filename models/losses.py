@@ -203,9 +203,9 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
     
     # 估计中切平面并分左右
     n, c, err = estimate_mid_plane(V_up)
-    print(f"  中切面 点 c = {c.tolist()}")
-    print(f"  中切面 法向 n = {n.tolist()}")
-    print(f"  中切面 对称误差 = {err:.4f} (均方根最近邻距离)")
+    # print(f"  中切面 点 c = [{c[0]:.3f}, {c[1]:.3f}, {c[2]:.3f}]")
+    # print(f"  中切面 法向 n = [{n[0]:.3f}, {n[1]:.3f}, {n[2]:.3f}]}")
+    # print(f"  中切面 对称误差 = {err:.4f} (均方根最近邻距离)")
     
     if contact.shape[0] > 1:
         # 使用 estimate_mid_plane 返回的平面 (n, c) 区分左右
@@ -237,7 +237,7 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
 
         cont_left = torch.var(contact[left_mask], dim=0, unbiased=False).sum() if left_mask.any() else zero
         cont_right = torch.var(contact[right_mask], dim=0, unbiased=False).sum() if right_mask.any() else zero
-        print("cont_left:", cont_left.item(), "cont_right:", cont_right.item())
+        print("cont_left: {:.4f} cont_right: {:.4f}".format(cont_left.item(), cont_right.item()))
         cont = cont_left + cont_right
         if left_mask.sum() < 5 or right_mask.sum() < 5:
             print("Warning: 左右接触点数量不足，可能导致损失波动大。")

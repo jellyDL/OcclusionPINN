@@ -224,7 +224,8 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
             if not hasattr(compute_loss, "_iter"):
                 compute_loss._iter = 0
             compute_loss._iter += 1
-            print("Contact Point Num:{}  Iter: {}     Left:{}  Rgiht:{}".format(len(contact), compute_loss._iter, len(contact[left_mask], len(contact[right_mask]))
+            print("Contact Point Num:{}  Iter: {}     Left:{}  Rgiht:{}".format(
+                len(contact), compute_loss._iter, len(contact[left_mask]), len(contact[right_mask])))
             contact_left_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_left" + str(compute_loss._iter) + ".txt"
             with open(contact_left_path, "a") as f:
                 for i in range(len(contact[left_mask])):
@@ -294,7 +295,6 @@ def sample_contact_points(V_up, V_low, delta=0.1, max_pts=15000, chunk=3000):
             sample_contact_points._iter = 0
         iter = sample_contact_points._iter
         sample_contact_points._iter += 1
-        print("contact ",len(contact))
         contact_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_"+str(sample_contact_points._iter )+".txt"
         for i in range(len(contact)):
             with open(contact_path, "a") as f:

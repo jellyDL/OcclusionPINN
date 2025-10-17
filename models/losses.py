@@ -224,7 +224,7 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
             if not hasattr(compute_loss, "_iter"):
                 compute_loss._iter = 0
             compute_loss._iter += 1
-            print("Contact Point Num:{} ,  Iter: {} ".format(len(contact), compute_loss._iter))
+            print("Contact Point Num:{}  Iter: {}     Left:{}  Rgiht:{}".format(len(contact), compute_loss._iter, len(contact[left_mask], len(contact[right_mask]))
             contact_left_path = "/home/jelly/Projects/OcclusionPINN_2025_10_16/data/contact_points_left" + str(compute_loss._iter) + ".txt"
             with open(contact_left_path, "a") as f:
                 for i in range(len(contact[left_mask])):
@@ -262,7 +262,7 @@ def compute_loss(V_up, F_up, V_low, mandible_v, theta, t, hinge_dir_L, hinge_dir
     # z_up, z_low 由调用方传入
     # cos = F.cosine_similarity(z_up, z_low, dim=0); orth = cos**2
 
-    print("#### pen:{} cont:{} axis:{} ".format(pen, cont, axis))
+    print("[LOSS] pen:{:4f} cont:{:4f} axis:{:4f} ".format(pen, cont, axis))
 
     loss = lambda_pen*pen + lambda_cont*cont + lambda_axis*axis
     return loss, {'pen':pen, 'cont':cont, 'axis':axis}

@@ -56,6 +56,24 @@ def main():
     cpr_path = root / "data" / "contact_points_right2.txt"
     out_path = root / "occlusal_view.png"
 
+    #如果输入参数大于3
+    if len(os.sys.argv) > 2:
+        iter = os.sys.argv[1]
+        lower_path = "data/lower_bite_" + iter + ".ply"
+        cpl_path = "data/contact_points_left" + iter + ".txt"
+        cpr_path = "data/contact_points_right" + iter + ".txt"
+    else:
+        print("Usage: python vis_occlusion.py <lower path> <iter>")
+        print("  Exp: python vis_occlusion.py lower_bite_10.ply 10")
+        
+    print("\n################################################")
+    print("Upper:", upper_path)
+    print("Lower:", lower_path)
+    print("CPL:", cpl_path)
+    print("CPR:", cpr_path)
+    print("Output:", out_path)
+    print("################################################\n")
+
     if not upper_path.exists() or not lower_path.exists():
         raise FileNotFoundError(f"未找到输入文件: {upper_path} 或 {lower_path}")
 

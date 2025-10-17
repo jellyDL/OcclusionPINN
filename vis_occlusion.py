@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 
+from open3d.visualization import rendering
 
 def _estimate_plane_normal(points: np.ndarray) -> np.ndarray:
     """PCA 拟合平面法向（最小特征值对应特征向量）"""
@@ -44,7 +45,7 @@ def _load_points_from_txt(path: Path) -> np.ndarray:
             for i in range(0, len(nums) - 2, 3):
                 pts.append([nums[i], nums[i + 1], nums[i + 2]])
     if not pts:
-        raise ValueError(f"未在 {path} 解析到任何 (x,y,z) 点")
+        print(f"未在 {path} 解析到任何 (x,y,z) 点")
     return np.asarray(pts, dtype=float)
 
 
@@ -91,13 +92,15 @@ def main():
     if not cpl_path.exists() or not cpr_path.exists():
         raise FileNotFoundError(f"未找到接触点文件: {cpl_path, cpr_path}")
     cpl_points = _load_points_from_txt(cpl_path)
-    pcdl = o3d.geometry.PointCloud()
-    pcdl.points = o3d.utility.Vector3dVector(cpl_points)
-    pcdl.paint_uniform_color([1.0, 0.85, 0.0])  # 黄色
+    if cpl_points.size != 0:
+        pcdl = o3d.geometry.PointCloud()
+        pcdl.points = o3d.utility.Vector3dVector(cpl_points)
+        pcdl.paint_uniform_color([1.0, 0.85, 0.0])  # 黄色
     cpr_points = _load_points_from_txt(cpr_path)
-    pcdr = o3d.geometry.PointCloud()
-    pcdr.points = o3d.utility.Vector3dVector(cpr_points)
-    pcdr.paint_uniform_color([0, 0.85, 0.0])  # 绿色
+    if cpr_points.size != 0:
+        pcdr = o3d.geometry.PointCloud()
+        pcdr.points = o3d.utility.Vector3dVector(cpr_points)
+        pcdr.paint_uniform_color([0, 0.85, 0.0])  # 绿色
 
     # 基本处理与着色
     for m, color in [(upper, [0.9, 0.4, 0.4]), (lower, [0.4, 0.6, 0.9])]:
@@ -123,7 +126,6 @@ def main():
     # 优先使用 OffscreenRenderer 进行半透明渲染；失败则回退 Visualizer
     width, height = 1280, 1080
     try:
-        from open3d.visualization import rendering
 
         renderer = rendering.OffscreenRenderer(width, height)
         scene = renderer.scene
@@ -145,8 +147,10 @@ def main():
 
         scene.add_geometry("upper", upper, mat_upper)
         scene.add_geometry("lower", lower, mat_lower)
-        scene.add_geometry("cpl", pcdl, mat_pts)
-        scene.add_geometry("cpr", pcdr, mat_pts)
+        if cpl_points.size != 0:
+            scene.add_geometry("cpl", pcdl, mat_pts)
+        if cpr_points.size != 0:
+            scene.add_geometry("cpr", pcdr, mat_pts)
 
         # 相机
         scene.camera.look_at(center, eye, up)

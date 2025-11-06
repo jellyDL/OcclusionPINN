@@ -8,6 +8,7 @@ import matplotlib as mpl
 from PIL import Image
 
 "功能说明: 可视化上下颌的咬合状态，增加热力分布显示功能，并分上下颌分别截图保存"
+"exp python vis_heatmap.py --lower data/test1_lower_open.ply"
 
 def load_mesh(file_path):
     """加载PLY网格文件"""
@@ -82,7 +83,7 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	main_img = Image.open(image_path).convert("RGBA")
 	h = main_img.height
 	# 生成 colorbar（matplotlib）- 调整高度为主图的 60%
-	cbar_height_ratio = 0.6  # 新增：控制 colorbar 高度占主图比例
+	cbar_height_ratio = 0.7  # 新增：控制 colorbar 高度占主图比例
 	cbar_h = int(h * cbar_height_ratio)
 	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=150)
 	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
@@ -265,10 +266,10 @@ def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), pre
     # 从上到下：z 从 center+distance 到 center-distance
     if type == "upperjaw":
         z_offset = distance  # 从 +distance 到 -distance
-        zoom_factor = 0.55
+        zoom_factor = 0.54
     elif type == "lowerjaw":
         z_offset = -distance  # 从 +distance 到 -distance
-        zoom_factor = 0.45
+        zoom_factor = 0.5
         
         
     eye = center + np.array([0.0, 0.0, z_offset])
@@ -293,6 +294,46 @@ def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), pre
 
     vis.destroy_window()
 
+def combine_upper_lower_images(upper_img_path, lower_with_cbar_path, out_path, bg_color=(255,255,255)):
+    """
+    将上颌图片旋转180度后，右侧填白使其与下颌带colorbar图等宽，然后垂直拼接。
+    
+    Args:
+        upper_img_path: vertical_upperjaw.png 路径
+        lower_with_cbar_path: heatmap_with_colorbar.png 路径
+        out_path: 输出拼接后的图片路径
+        bg_color: 填充背景色 (R,G,B)
+    """
+    # 读取两张图片
+    upper_img = Image.open(upper_img_path).convert("RGB")
+    lower_img = Image.open(lower_with_cbar_path).convert("RGB")
+    
+    # 1. 旋转上颌图片180度
+    upper_rotated = upper_img.rotate(180, expand=True)
+    
+    # 2. 获取下颌图片宽度（目标宽度）
+    target_width = lower_img.width
+    upper_h = upper_rotated.height
+    
+    # 3. 如果上颌图宽度小于目标宽度，右侧填白
+    if upper_rotated.width < target_width:
+        new_upper = Image.new("RGB", (target_width, upper_h), bg_color)
+        new_upper.paste(upper_rotated, (0, 0))
+        upper_final = new_upper
+    else:
+        # 如果上颌图更宽，居中裁剪
+        crop_x = (upper_rotated.width - target_width) // 2
+        upper_final = upper_rotated.crop((crop_x, 0, crop_x + target_width, upper_h))
+    
+    # 4. 垂直拼接（上颌在上，下颌在下）
+    total_height = upper_final.height + lower_img.height
+    canvas = Image.new("RGB", (target_width, total_height), bg_color)
+    canvas.paste(upper_final, (0, 0))
+    canvas.paste(lower_img, (0, upper_final.height))
+    
+    canvas.save(out_path)
+    print("Saved combined image:", out_path)
+
 # 使用示例
 if __name__ == "__main__":
     # 替换原示例入口，增加保存从上往下截图的参数
@@ -302,7 +343,6 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
-    parser.add_argument("--save_vertical_steps", action="store_true", help="是否保存从上往下的截图序列")
     parser.add_argument("--vertical_steps", type=int, default=10, help="从上往下截图的帧数")
     args = parser.parse_args()
 
@@ -320,12 +360,21 @@ if __name__ == "__main__":
         print("\n可视化完成！")
 
         # 若需要保存从上往下的截图序列（保存并退出）
-        if args.save_vertical_steps:
-            # 使用着色后的网格进行截图（上/下均为 open3d mesh）
-            print(f"开始保存从上往下的截图...")
-            capture_top_to_bottom(upper_mesh, "upperjaw", out_dir, steps=args.vertical_steps, img_size=(960,800))
-            capture_top_to_bottom(lower_mesh, "lowerjaw", out_dir, steps=args.vertical_steps, img_size=(960,800))
-            print("序列保存完成。")
+        # 使用着色后的网格进行截图（上/下均为 open3d mesh）
+        print(f"开始保存从上往下的截图...")
+        capture_top_to_bottom(upper_mesh, "upperjaw", out_dir, steps=args.vertical_steps, img_size=(860,800))
+        capture_top_to_bottom(lower_mesh, "lowerjaw", out_dir, steps=args.vertical_steps, img_size=(860,800))
+        print("序列保存完成。")
+        
+        # 拼接上下颌图片
+        upper_img_path = os.path.join(out_dir, "vertical_upperjaw.png")
+        lower_with_cbar_path = os.path.join(out_dir, "heatmap_with_colorbar.png")
+        combined_path = os.path.join(out_dir, "combined_upper_lower.png")
+        if os.path.exists(upper_img_path) and os.path.exists(lower_with_cbar_path):
+            combine_upper_lower_images(upper_img_path, lower_with_cbar_path, combined_path)
+        else:
+            print("警告: 缺少必要图片，无法生成拼接图。")
+                
     except FileNotFoundError as e:
         print(f"错误: 找不到文件 - {e}")
     except Exception as e:

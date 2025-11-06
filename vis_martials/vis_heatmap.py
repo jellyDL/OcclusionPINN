@@ -227,25 +227,25 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     print(f"  蓝色: 咬合边缘 (~{threshold} mm)")
     print(f"  灰色: 非咬合区域 (>{threshold} mm)")
     
-    vis.run()
-    vis.destroy_window()
+    # vis.run()
+    # vis.destroy_window()
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
-def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
+def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
     """
     沿 Z 轴从上到下截取多张图并保存。
-    meshes: list of open3d TriangleMesh
+    mesh: open3d TriangleMesh
     out_dir: 保存目录
     steps: 帧数
     img_size: (width, height)
     """
     os.makedirs(out_dir, exist_ok=True)
-    # 计算总中心与尺度
-    all_bounds = np.vstack([np.asarray(m.get_axis_aligned_bounding_box().get_min_bound())[None,:] for m in meshes])
-    # 更稳妥地使用 min/max across meshes
-    mins = np.min([np.asarray(m.get_axis_aligned_bounding_box().get_min_bound()) for m in meshes], axis=0)
-    maxs = np.max([np.asarray(m.get_axis_aligned_bounding_box().get_max_bound()) for m in meshes], axis=0)
+    # # 使用单个 mesh 的包围框计算中心与尺度
+    aabb = mesh.get_axis_aligned_bounding_box()
+    mins = np.asarray(aabb.get_min_bound())
+    maxs = np.asarray(aabb.get_max_bound())
+    
     center = (mins + maxs) / 2.0
     extent = np.max(maxs - mins)
     distance = max(0.1, extent * 2.2)
@@ -253,33 +253,38 @@ def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,960), prefix=
     # 准备可视化窗口（离屏）
     vis = o3d.visualization.Visualizer()
     vis.create_window(width=img_size[0], height=img_size[1], visible=False)
-    for geom in meshes:
-        vis.add_geometry(geom)
+
+    vis.add_geometry(mesh)
     vc = vis.get_view_control()
     opt = vis.get_render_option()
     opt.mesh_show_back_face = True
     opt.light_on = True
 
     # 从上到下：z 从 center+distance 到 center-distance
-    # for i in range(steps):
-    for i in [0,5]:
-        t = 0.0 if steps == 1 else i / (steps - 1)
-        z_offset = distance * (1.0 - 2.0 * t)  # 从 +distance 到 -distance
-        eye = center + np.array([0.0, 0.0, z_offset])
-        front = (center - eye)
-        front = front / np.linalg.norm(front)
-        # 设置相机
-        vc.set_lookat(center.tolist())
-        vc.set_front(front.tolist())
-        # 保持顶向量一致（可根据需要调整）
-        vc.set_up([0.0, 1.0, 0.0])
-        vc.set_zoom(0.5)
-
-        vis.poll_events()
-        vis.update_renderer()
-        fname = os.path.join(out_dir, f"{prefix}_{i:03d}.png")
-        vis.capture_screen_image(fname, do_render=True)
+    if type == "upperjaw":
+        z_offset = distance  # 从 +distance 到 -distance
+        zoom_factor = 0.55
+    elif type == "lowerjaw":
+        z_offset = -distance  # 从 +distance 到 -distance
+        zoom_factor = 0.45
         
+        
+    eye = center + np.array([0.0, 0.0, z_offset])
+    front = (center - eye)
+    front = front / np.linalg.norm(front)
+    # 设置相机
+    vc.set_lookat(center.tolist())
+    vc.set_front(front.tolist())
+    # 保持顶向量一致（可根据需要调整）
+    vc.set_up([0.0, 1.0, 0.0])
+    vc.set_zoom(zoom_factor)
+
+    vis.poll_events()
+    vis.update_renderer()
+    fname = os.path.join(out_dir, f"{prefix}_{str(type)}.png")
+    vis.capture_screen_image(fname, do_render=True)
+    
+    if type == "lowerjaw":
         # add colorbar
         fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
         add_colorbar_to_image(fname, fname_with_cbar, vmin=0, vmax=0.5, colormap=colormap)
@@ -315,8 +320,9 @@ if __name__ == "__main__":
         # 若需要保存从上往下的截图序列（保存并退出）
         if args.save_vertical_steps:
             # 使用着色后的网格进行截图（上/下均为 open3d mesh）
-            print(f"开始保存从上往下的截图序列，共 {args.vertical_steps} 帧...")
-            capture_top_to_bottom([upper_mesh, lower_mesh], out_dir, steps=args.vertical_steps, img_size=(960,800))
+            print(f"开始保存从上往下的截图...")
+            capture_top_to_bottom(upper_mesh, "upperjaw", out_dir, steps=args.vertical_steps, img_size=(960,800))
+            capture_top_to_bottom(lower_mesh, "lowerjaw", out_dir, steps=args.vertical_steps, img_size=(960,800))
             print("序列保存完成。")
     except FileNotFoundError as e:
         print(f"错误: 找不到文件 - {e}")

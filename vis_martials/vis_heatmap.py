@@ -2,6 +2,8 @@ import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import os
+import argparse
 
 def load_mesh(file_path):
     """加载PLY网格文件"""
@@ -181,30 +183,90 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
+def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,800), prefix="vertical"):
+    """
+    沿 Z 轴从上到下截取多张图并保存。
+    meshes: list of open3d TriangleMesh
+    out_dir: 保存目录
+    steps: 帧数
+    img_size: (width, height)
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    # 计算总中心与尺度
+    all_bounds = np.vstack([np.asarray(m.get_axis_aligned_bounding_box().get_min_bound())[None,:] for m in meshes])
+    # 更稳妥地使用 min/max across meshes
+    mins = np.min([np.asarray(m.get_axis_aligned_bounding_box().get_min_bound()) for m in meshes], axis=0)
+    maxs = np.max([np.asarray(m.get_axis_aligned_bounding_box().get_max_bound()) for m in meshes], axis=0)
+    center = (mins + maxs) / 2.0
+    extent = np.max(maxs - mins)
+    distance = max(0.1, extent * 2.2)
+
+    # 准备可视化窗口（离屏）
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(width=img_size[0], height=img_size[1], visible=False)
+    for geom in meshes:
+        vis.add_geometry(geom)
+    vc = vis.get_view_control()
+    opt = vis.get_render_option()
+    opt.mesh_show_back_face = True
+    opt.light_on = True
+
+    # 从上到下：z 从 center+distance 到 center-distance
+    # for i in range(steps):
+    for i in [0,5]:
+        t = 0.0 if steps == 1 else i / (steps - 1)
+        z_offset = distance * (1.0 - 2.0 * t)  # 从 +distance 到 -distance
+        eye = center + np.array([0.0, 0.0, z_offset])
+        front = (center - eye)
+        front = front / np.linalg.norm(front)
+        # 设置相机
+        vc.set_lookat(center.tolist())
+        vc.set_front(front.tolist())
+        # 保持顶向量一致（可根据需要调整）
+        vc.set_up([0.0, 1.0, 0.0])
+        vc.set_zoom(0.7)
+
+        vis.poll_events()
+        vis.update_renderer()
+        fname = os.path.join(out_dir, f"{prefix}_{i:03d}.png")
+        vis.capture_screen_image(fname, do_render=True)
+        print(f"Saved: {fname}")
+
+    vis.destroy_window()
+
 # 使用示例
 if __name__ == "__main__":
-    # 设置文件路径
-    upper_file = "data/test1_upper.ply"
-    lower_file = "data/test1_lower_open.ply"
-    
-    # 咬合距离阈值（单位：mm）
-    threshold = 0.5
-    
-    # 可选的colormap: 'jet', 'rainbow', 'viridis', 'plasma', 'hot', 'cool'
-    colormap = 'jet'
-    
+    # 替换原示例入口，增加保存从上往下截图的参数
+    parser = argparse.ArgumentParser(description="可视化并可选保存牙颌咬合热力图和从上往下截图序列")
+    parser.add_argument("--upper", default="data/test1_upper.ply", help="Upper jaw PLY file")
+    parser.add_argument("--lower", default="data/test1_lower_final.ply", help="Lower jaw PLY file")
+    parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
+    parser.add_argument("--colormap", default="jet", help="colormap name")
+    parser.add_argument("--out_dir", default=".", help="输出目录")
+    parser.add_argument("--save_vertical_steps", action="store_true", help="是否保存从上往下的截图序列")
+    parser.add_argument("--vertical_steps", type=int, default=10, help="从上往下截图的帧数")
+    args = parser.parse_args()
+
+    upper_file = args.upper
+    lower_file = args.lower
+    threshold = args.threshold
+    colormap = args.colormap
+    out_dir = args.out_dir
+    os.makedirs(out_dir, exist_ok=True)
+
     try:
         upper_mesh, lower_mesh, distance_range = visualize_occlusion_heatmap(
             upper_file, lower_file, colormap, threshold
         )
         print("\n可视化完成！")
-        
-        # 可选：保存着色后的网格
-        # o3d.io.write_triangle_mesh("upper_heatmap.ply", upper_mesh)
-        # o3d.io.write_triangle_mesh("lower_heatmap.ply", lower_mesh)
-        
+
+        # 若需要保存从上往下的截图序列（保存并退出）
+        if args.save_vertical_steps:
+            # 使用着色后的网格进行截图（上/下均为 open3d mesh）
+            print(f"开始保存从上往下的截图序列，共 {args.vertical_steps} 帧...")
+            capture_top_to_bottom([upper_mesh, lower_mesh], out_dir, steps=args.vertical_steps, img_size=(800,800))
+            print("序列保存完成。")
     except FileNotFoundError as e:
         print(f"错误: 找不到文件 - {e}")
     except Exception as e:
         print(f"错误: {e}")
-        

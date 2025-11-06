@@ -4,6 +4,8 @@ import sys
 from typing import Tuple
 import numpy as np
 
+"通过 距离和角度，调整上下颌的咬合情况"
+
 try:
     import open3d as o3d
 except ImportError as e:

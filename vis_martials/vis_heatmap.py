@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import os
 import argparse
+import matplotlib as mpl
+from PIL import Image
 
 def load_mesh(file_path):
     """加载PLY网格文件"""
@@ -72,6 +74,39 @@ def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None
     
     return mesh, vmin, vmax
 
+# 新增：把 colorbar 拼接到截图右侧
+def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='jet', pad_ratio=0.1, cbar_width_ratio=0.12):
+	# 读取主图
+	main_img = Image.open(image_path).convert("RGBA")
+	h = main_img.height
+	# 生成 colorbar（matplotlib）- 调整高度为主图的 60%
+	cbar_height_ratio = 0.6  # 新增：控制 colorbar 高度占主图比例
+	cbar_h = int(h * cbar_height_ratio)
+	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=150)
+	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
+	norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+	cb = mpl.colorbar.ColorbarBase(ax, cmap=mpl.cm.get_cmap(colormap), norm=norm, orientation='vertical')
+	cb.set_label('Distance(mm)')
+	tmp_cbar = os.path.splitext(out_path)[0] + "_cbar_tmp.png"
+	fig.savefig(tmp_cbar, bbox_inches='tight', pad_inches=0.1)
+	plt.close(fig)
+	cbar_img = Image.open(tmp_cbar).convert("RGBA")
+	# 调整 colorbar 宽度（高度已由 figsize 控制）
+	cbar_w = max(20, int(h * cbar_width_ratio))
+	cbar_img = cbar_img.resize((cbar_w, cbar_h), resample=Image.BICUBIC)
+	# 组合 - colorbar 垂直居中放置
+	pad = max(4, int(h * pad_ratio))
+	canvas = Image.new("RGBA", (main_img.width + pad + cbar_img.width, h), (255, 255, 255, 255))
+	canvas.paste(main_img, (0, 0))
+	cbar_y_offset = (h - cbar_h) // 2  # 居中
+	canvas.paste(cbar_img, (main_img.width + pad, cbar_y_offset), cbar_img)
+	canvas.convert("RGB").save(out_path)
+	try:
+		os.remove(tmp_cbar)
+	except Exception:
+		pass
+	print("Saved screenshot with colorbar:", out_path)
+
 def create_colorbar_mesh(vmin, vmax, colormap='jet', height=100, width=20):
     """
     创建颜色条网格用于显示
@@ -107,7 +142,7 @@ def create_colorbar_mesh(vmin, vmax, colormap='jet', height=100, width=20):
     
     return colorbar_mesh
 
-def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshold=0.5):
+def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshold=0.5, out_dir="."):
     """
     主函数：可视化牙颌咬合热力图
     threshold: 只显示小于此距离的咬合区域 (单位: mm)
@@ -160,7 +195,7 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     # 可视化
     print("准备可视化...")
     vis = o3d.visualization.Visualizer()
-    vis.create_window(window_name='牙颌咬合热力图', width=1200, height=800)
+    vis.create_window(window_name='牙颌咬合热力图', width=960, height=800)
     
     vis.add_geometry(upper_mesh_colored)
     vis.add_geometry(lower_mesh_colored)
@@ -197,7 +232,7 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
-def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,800), prefix="vertical"):
+def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
     """
     沿 Z 轴从上到下截取多张图并保存。
     meshes: list of open3d TriangleMesh
@@ -238,13 +273,16 @@ def capture_top_to_bottom(meshes, out_dir, steps=10, img_size=(800,800), prefix=
         vc.set_front(front.tolist())
         # 保持顶向量一致（可根据需要调整）
         vc.set_up([0.0, 1.0, 0.0])
-        vc.set_zoom(0.7)
+        vc.set_zoom(0.5)
 
         vis.poll_events()
         vis.update_renderer()
         fname = os.path.join(out_dir, f"{prefix}_{i:03d}.png")
         vis.capture_screen_image(fname, do_render=True)
-        print(f"Saved: {fname}")
+        
+        # add colorbar
+        fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
+        add_colorbar_to_image(fname, fname_with_cbar, vmin=0, vmax=0.5, colormap=colormap)
 
     vis.destroy_window()
 
@@ -270,7 +308,7 @@ if __name__ == "__main__":
 
     try:
         upper_mesh, lower_mesh, distance_range = visualize_occlusion_heatmap(
-            upper_file, lower_file, colormap, threshold
+            upper_file, lower_file, colormap, threshold, out_dir=out_dir
         )
         print("\n可视化完成！")
 
@@ -278,7 +316,7 @@ if __name__ == "__main__":
         if args.save_vertical_steps:
             # 使用着色后的网格进行截图（上/下均为 open3d mesh）
             print(f"开始保存从上往下的截图序列，共 {args.vertical_steps} 帧...")
-            capture_top_to_bottom([upper_mesh, lower_mesh], out_dir, steps=args.vertical_steps, img_size=(800,800))
+            capture_top_to_bottom([upper_mesh, lower_mesh], out_dir, steps=args.vertical_steps, img_size=(960,800))
             print("序列保存完成。")
     except FileNotFoundError as e:
         print(f"错误: 找不到文件 - {e}")

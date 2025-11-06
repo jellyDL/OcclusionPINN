@@ -7,6 +7,9 @@ import argparse
 import matplotlib as mpl
 from PIL import Image
 
+
+"可视化上下颌的咬合状态，增加热力分布显示功能，并分上下颌分别截图保存"
+
 def load_mesh(file_path):
     """加载PLY网格文件"""
     mesh = o3d.io.read_triangle_mesh(file_path)

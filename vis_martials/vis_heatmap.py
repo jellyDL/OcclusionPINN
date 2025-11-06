@@ -118,11 +118,11 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     print("加载下颌网格...")
     lower_mesh = load_mesh(lower_file)
     
-    # 确保网格有法向量
-    if not upper_mesh.has_triangle_normals():
-        upper_mesh.compute_triangle_normals()
-    if not lower_mesh.has_triangle_normals():
-        lower_mesh.compute_triangle_normals()
+    # 使用顶点法线以获得更好的光照/细节表现
+    if not upper_mesh.has_vertex_normals():
+        upper_mesh.compute_vertex_normals()
+    if not lower_mesh.has_vertex_normals():
+        lower_mesh.compute_vertex_normals()
     
     print("计算上颌到下颌的距离...")
     upper_distances = compute_mesh_to_mesh_distance(upper_mesh, lower_mesh)
@@ -147,6 +147,15 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     lower_mesh_colored, _, _ = apply_colormap_to_mesh(
         lower_mesh, lower_distances, colormap, vmin=0.0, vmax=threshold, threshold=threshold
     )
+    # 着色后务必重新计算顶点法线，确保光照与高光显示网格细节
+    try:
+        upper_mesh_colored.compute_vertex_normals()
+    except Exception:
+        pass
+    try:
+        lower_mesh_colored.compute_vertex_normals()
+    except Exception:
+        pass
     
     # 可视化
     print("准备可视化...")
@@ -160,6 +169,11 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     opt = vis.get_render_option()
     opt.mesh_show_back_face = True
     opt.light_on = True
+    # 可选：调整背景色与增强光照对比，方便观察细节
+    try:
+        opt.background_color = np.asarray([1.0, 1.0, 1.0])  # 白底
+    except Exception:
+        pass
     
     # 添加坐标系
     coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(

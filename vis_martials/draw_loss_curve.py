@@ -93,7 +93,7 @@ ax1.set_ylabel('Loss Value', fontsize=12, fontweight='bold')
 ax1.set_title('Penetration Loss (λ=10.0)', fontsize=13, fontweight='bold')
 ax1.legend(loc='upper right', fontsize=9)
 ax1.grid(True, alpha=0.3)
-ax1.text(100, ax1.get_ylim()[1]*0.8, 'Rapid Descent', fontsize=10, 
+ax1.text(65, ax1.get_ylim()[1]*0.75, 'Rapid Descent', fontsize=10, 
          bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 ax1.text(350, ax1.get_ylim()[1]*0.3, 'Fine-tuning', fontsize=10,
          bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
@@ -137,7 +137,7 @@ ax4.legend(loc='upper right', fontsize=9)
 ax4.grid(True, alpha=0.3)
 ax4.text(100, ax4.get_ylim()[1]*0.8, 'INACTIVE', fontsize=11, fontweight='bold',
          bbox=dict(boxstyle='round', facecolor='red', alpha=0.3))
-ax4.text(350, ax4.get_ylim()[1]*0.6, 'Exponential Decay\nLR: 5e-3 × 0.8^(iter/10)', 
+ax4.text(320, ax4.get_ylim()[1]*0.6, 'Exponential Decay\nLR: 5e-3 × 0.8^(iter/10)', 
          fontsize=9, bbox=dict(boxstyle='round', facecolor='orange', alpha=0.4))
 
 # 子图5: Boundary Condition Loss
@@ -167,10 +167,10 @@ ax6.legend(loc='upper right', fontsize=9)
 ax6.grid(True, alpha=0.3)
 
 # 添加阶段标注
-ax6.text(100, ax6.get_ylim()[1]*0.85, 'Stage 1:\nGeometric Only\nLR: 1e-3', 
+ax6.text(50, ax6.get_ylim()[1]*0.7, 'Stage 1:\nGeometric Only\nLR: 1e-3', 
          fontsize=10, fontweight='bold',
          bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.7))
-ax6.text(350, ax6.get_ylim()[1]*0.85, 'Stage 2:\nGeometric + Physics\nPINN LR: 5e-3→decay', 
+ax6.text(300, ax6.get_ylim()[1]*0.7, 'Stage 2:\nGeometric + Physics\nPINN LR: 5e-3→decay', 
          fontsize=10, fontweight='bold',
          bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7))
 

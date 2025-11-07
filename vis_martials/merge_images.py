@@ -6,11 +6,120 @@
 - 可自定义图片间距
 - 可设置四周边距（左、右、上、下）
 - 自动居中对齐
+
+exp. python merge_images.py test1_open_combined_.png test1_final_combined_.png -o test1_final.png --spacing 100
 """
 
 import os
 import argparse
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+
+
+# 新增：解析可缩放字体，确保 font_size 生效
+def _resolve_font(font_path: str | None, font_size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+	# 1) 用户传入字体
+	if font_path and os.path.exists(font_path):
+		try:
+			return ImageFont.truetype(font_path, font_size)
+		except Exception:
+			pass
+	# 2) 尝试常见系统字体
+	common_paths = [
+		# macOS
+		"/System/Library/Fonts/PingFang.ttc",
+		"/System/Library/Fonts/STHeiti Medium.ttc",
+		"/System/Library/Fonts/Helvetica.ttc",
+		# Linux
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+		"/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+		# Windows
+		"C:/Windows/Fonts/msyh.ttc",
+		"C:/Windows/Fonts/simhei.ttf",
+		"C:/Windows/Fonts/simsun.ttc",
+		"C:/Windows/Fonts/arial.ttf",
+	]
+	for p in common_paths:
+		if os.path.exists(p):
+			try:
+				return ImageFont.truetype(p, font_size)
+			except Exception:
+				continue
+	# 3) 回退位图字体（字号不可调）
+	return ImageFont.load_default()
+
+
+def add_caption_below(
+	image_path: str,
+	out_path: str,
+	text: str,
+	font_path: str | None = None,
+	font_size: int = 32,
+	text_color=(0, 0, 0),
+	bg_color=(255, 255, 255),
+	offset_left: int = 0,
+	offset_top: int = 8,
+	padding_bottom: int = 8,
+	line_spacing: int = 4,
+):
+	"""
+	在图像下方增加文字标注并保存为新图片。
+	参数：
+	- image_path: 输入图片路径
+	- out_path: 输出图片路径
+	- text: 文本内容（支持多行，用 '\n' 分隔）
+	- font_path: 字体路径（ttf/otf/ttc），不传则自动选择系统可缩放字体
+	- font_size: 字号
+	- text_color: 文本颜色 (R,G,B)
+	- bg_color: 新增区域背景色 (R,G,B)
+	- offset_left: 文本相对“原图最左侧”的水平偏移（像素）
+	- offset_top: 文本相对“原图底部”的垂直偏移（像素）（即文本到原图底边的距离）
+	- padding_bottom: 文本块底部额外留白（像素）
+	- line_spacing: 行间距（像素）
+	"""
+	# 打开原图
+	img = Image.open(image_path).convert("RGB")
+	W, H = img.size
+
+	# 字体
+	font = _resolve_font(font_path, int(font_size))
+
+	# 计算多行文本尺寸
+	draw_tmp = ImageDraw.Draw(img)
+	lines = str(text).split("\n")
+
+	def measure(txt: str):
+		try:
+			bbox = draw_tmp.textbbox((0, 0), txt if txt else " ", font=font)
+			return bbox[2] - bbox[0], bbox[3] - bbox[1]
+		except Exception:
+			return draw_tmp.textsize(txt if txt else " ", font=font)
+
+	line_sizes = [measure(line) for line in lines]
+	line_heights = [h for _, h in line_sizes]
+	text_block_h = sum(line_heights) + line_spacing * max(0, len(lines) - 1)
+
+	# 新画布高度：原图 + 上偏移 + 文本高 + 下内边距
+	caption_h = max(0, int(offset_top)) + text_block_h + max(0, int(padding_bottom))
+	new_H = H + caption_h
+
+	# 生成新画布与绘制
+	canvas = Image.new("RGB", (W, new_H), bg_color)
+	canvas.paste(img, (0, 0))
+	draw = ImageDraw.Draw(canvas)
+
+	# 文本起始坐标
+	x = max(0, int(offset_left))
+	y = H + max(0, int(offset_top))
+
+	for i, line in enumerate(lines):
+		lw, lh = measure(line)
+		draw.text((x, y), line, fill=text_color, font=font)
+		y += lh + line_spacing
+
+	# 保存
+	os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+	canvas.save(out_path)
+	print(f"✓ 已保存带文字标注图片: {out_path}")
 
 
 def combine_images(image_paths, out_path, direction='horizontal', 
@@ -141,6 +250,10 @@ def main():
     except Exception as e:
         print(f"错误: {e}")
 
+    add_caption_below(image_path=args.output, out_path=args.output,
+	text="(a) The original collected occlusion.                                                                               (b) The predicted occlusion.",
+	font_path=None, font_size=32, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
+    offset_left=185, offset_top=8, padding_bottom= 8, line_spacing=4)
 
 if __name__ == "__main__":
     main()

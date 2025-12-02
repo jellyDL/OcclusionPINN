@@ -8,7 +8,7 @@ def draw_vertial_line(img, x):
     dash_length = 30  # 虚线段长度
     gap_length = 15    # 虚线间隔长度
     line_color = (64, 64, 64)  # 深灰色
-    line_width = 5
+    line_width = 8
 
     y = 0
     while y < img_height:
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     draw_vertial_line(img, img.width // 2 - 28)
  
     # 2. 设置文字内容和位置
-    draw_text(draw, "MidPlane", img.width//2+20, img.height//2)
+    draw_text(draw, "Mid Plane", img.width//2+20, img.height//2, font_size=64)
    
     # 3. 设置牙位
     # upper

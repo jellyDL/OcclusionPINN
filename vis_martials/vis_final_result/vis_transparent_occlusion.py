@@ -31,19 +31,17 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_t
     # 设置背景色（白色）
     scene.scene.set_background([1, 1, 1, 1])
 
-    # 上颌透明材质
+    # 上颌透明材质 - 保留原始纹理/顶点颜色
     mat_upper = rendering.MaterialRecord()
     mat_upper.shader = "defaultLitTransparency"
-    # mat_upper.base_color = [0.8, 0.2, 0.2, 0.6]  # 红色半透明
-    mat_upper.base_color = [0.5, 0.5, 0.5, 0.7]  # 透明
+    mat_upper.base_color = [1.0, 1.0, 1.0, 0.6]  # 白色基底 + 透明度，让原始颜色显示
     mat_upper.base_roughness = 0.3
     mat_upper.base_reflectance = 0.5
 
-    # 下颌不透明材质
+    # 下颌不透明材质 - 保留原始纹理/顶点颜色
     mat_lower = rendering.MaterialRecord()
     mat_lower.shader = "defaultLit"
-    # mat_lower.base_color = [0.2, 0.6, 0.8, 0.6]  # 蓝色不透明
-    mat_lower.base_color = [0.5, 0.5, 0.5, 0.6]  # 透明
+    mat_lower.base_color = [1.0, 1.0, 1.0, 0.8]  # 白色基底，让原始颜色显示
     mat_lower.base_roughness = 0.3
     mat_lower.base_reflectance = 0.5
 
@@ -63,7 +61,7 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_t
 
     # 定义多个视角
     views = {
-        "front": ([center[0], center[1], center[2] + bounds.get_extent()[2] * 2], center, [0, 1, 0]),
+        "front": ([center[0], center[1], center[2] + bounds.get_extent()[2] * 2], center, [0, -1, 0]),
         # "back": ([center[0], center[1], center[2] - bounds.get_extent()[2] * 2], center, [0, 1, 0]),
         # "left": ([center[0] - bounds.get_extent()[0] * 2, center[1], center[2]], center, [0, 1, 0]),
         # "right": ([center[0] + bounds.get_extent()[0] * 2, center[1], center[2]], center, [0, 1, 0]),

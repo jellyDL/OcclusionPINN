@@ -251,9 +251,9 @@ def main():
         print(f"错误: {e}")
 
     add_caption_below(image_path=args.output, out_path=args.output,
-	text="(a) The original collected occlusion.                                                                               (b) The predicted occlusion.",
-	font_path=None, font_size=32, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-    offset_left=185, offset_top=8, padding_bottom= 8, line_spacing=4)
+	text="(a) The original collected occlusion.                              (b) The predicted occlusion.",
+	font_path=None, font_size=48, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
+    offset_left=80, offset_top=8, padding_bottom= 8, line_spacing=4)
 
 if __name__ == "__main__":
     main()

@@ -58,14 +58,14 @@ def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None
     # 创建掩码：只处理距离小于阈值的顶点
     mask = distances <= threshold
     
-    # 归一化距离值 (反转：近的值大，远的值小，这样红色表示近，蓝色表示远)
+    # 归一化距离值 (反转映射：小值->0.0->红色，大值->1.0->蓝色)
     normalized_distances = np.zeros_like(distances)
     if np.sum(mask) > 0:
         valid_distances = distances[mask]
         # 反转归一化：0mm->1.0(红色), 0.5mm->0.0(蓝色)
         normalized_distances[mask] = 1.0 - (valid_distances - vmin) / (vmax - vmin)
     
-    # 应用colormap (jet: 0->蓝色, 1->红色)
+    # 应用colormap (jet: 0->红色, 1->蓝色)
     cmap = cm.get_cmap(colormap)
     colors = cmap(normalized_distances)[:, :3]
     
@@ -83,19 +83,25 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	main_img = Image.open(image_path).convert("RGBA")
 	h = main_img.height
 	# 生成 colorbar（matplotlib）- 调整高度为主图的 60%
-	cbar_height_ratio = 0.7  # 新增：控制 colorbar 高度占主图比例
+	cbar_height_ratio = 0.85  # 新增：控制 colorbar 高度占主图比例
 	cbar_h = int(h * cbar_height_ratio)
 	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=150)
 	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
 	norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-	cb = mpl.colorbar.ColorbarBase(ax, cmap=mpl.cm.get_cmap(colormap), norm=norm, orientation='vertical')
-	cb.set_label('Distance(mm)')
+	cmap = mpl.cm.get_cmap(colormap)
+	# 反转 colormap：让小值（底部）显示红色，大值（顶部）显示蓝色
+	cmap_reversed = cmap.reversed()
+	cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap_reversed, norm=norm, orientation='vertical')
+	cb.set_label('Distance(mm)', fontsize=20)
+	# 设置刻度标签字体大小
+	cb.ax.tick_params(labelsize=18)
 	tmp_cbar = os.path.splitext(out_path)[0] + "_cbar_tmp.png"
 	fig.savefig(tmp_cbar, bbox_inches='tight', pad_inches=0.1)
 	plt.close(fig)
 	cbar_img = Image.open(tmp_cbar).convert("RGBA")
 	# 调整 colorbar 宽度（高度已由 figsize 控制）
-	cbar_w = max(20, int(h * cbar_width_ratio))
+	cbar_w = max(140, int(h * cbar_width_ratio))
+	print("Resizing colorbar to :", cbar_w, cbar_h)
 	cbar_img = cbar_img.resize((cbar_w, cbar_h), resample=Image.BICUBIC)
 	# 组合 - colorbar 垂直居中放置
 	pad = max(4, int(h * pad_ratio))

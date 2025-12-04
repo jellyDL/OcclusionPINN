@@ -52,10 +52,10 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_t
     scene.scene.add_geometry("lower_jaw", lower_mesh, mat_lower)
 
     # 添加坐标系
-    coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10)
-    mat_coord = rendering.MaterialRecord()
-    mat_coord.shader = "defaultUnlit"
-    scene.scene.add_geometry("coordinate", coordinate_frame, mat_coord)
+    # coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10)
+    # mat_coord = rendering.MaterialRecord()
+    # mat_coord.shader = "defaultUnlit"
+    # scene.scene.add_geometry("coordinate", coordinate_frame, mat_coord)
 
     # 设置相机参数
     bounds = scene.scene.bounding_box

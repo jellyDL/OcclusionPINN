@@ -58,8 +58,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化上下颌咬合状态，上颌透明显示")
     parser.add_argument("-u", "--upper", default="../data/upper.ply", help="上颌PLY文件路径")
     parser.add_argument("-l", "--lower", default="../data/lower.ply", help="下颌PLY文件路径")
-    parser.add_argument("--z-steps", type=int, default=15, help="Z轴序列截图帧数")
-    parser.add_argument("--no-sequence", action="store_true", help="跳过Z轴序列截图")
     args = parser.parse_args()
     
     try:

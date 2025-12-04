@@ -2,6 +2,11 @@ import open3d as o3d
 import numpy as np
 import argparse
 import os
+import sys
+
+# 添加父目录到路径以支持跨目录导入
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from vis_occusion_heatmap.vis_heatmap import visualize_occlusion_heatmap
 import open3d.visualization.gui as gui
 import open3d.visualization.rendering as rendering
 
@@ -13,7 +18,7 @@ def load_mesh(file_path):
     mesh.compute_vertex_normals()
     return mesh
 
-def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_transparent_views"):
+def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, output_dir="."):
     """
     使用 GUI 渲染器捕获透明网格的截图
     """
@@ -81,6 +86,17 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_t
             # 设置相机
             scene.setup_camera(60, bounds, center)
             scene.look_at(center, eye, up)
+            
+            # 设置缩放（通过调整视野角度或相机距离）
+            # 获取当前相机并调整
+            cam = scene.scene.camera
+            # 缩放因子：值越小，物体在画面中越大
+            new_eye = [
+                center[0] + (eye[0] - center[0]) * zoom_factor,
+                center[1] + (eye[1] - center[1]) * zoom_factor,
+                center[2] + (eye[2] - center[2]) * zoom_factor
+            ]
+            scene.look_at(center, new_eye, up)
 
             # 延迟截图以确保渲染完成
             def do_screenshot():
@@ -106,57 +122,35 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, output_dir="z_t
 
     app.run()
     
-def visualize_transparent_jaw(upper_file, lower_file):
+def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, colormap, out_dir):
     """
     可视化上下颌，上颌透明显示
     """ 
     print("加载上颌网格...")
     upper_mesh = load_mesh(upper_file)
-
+    
     print("加载下颌网格...")
     lower_mesh = load_mesh(lower_file)
     
-    # 先截图保存（使用兼容方式）
-    print("\n正在生成 Z 轴方向截图...")
-    os.makedirs("z_transparent_views", exist_ok=True)
+    upper_mesh, lower_mesh, distance_range = visualize_occlusion_heatmap(
+        upper_file, lower_file, colormap, threshold, out_dir=out_dir
+    )
     
     # 自动截图
-    # print("\n正在生成多视角透明截图...")
-    capture_screenshot_with_transparency(upper_mesh, lower_mesh)
-    # # 尝试使用支持透明度的新版 API
-    # if hasattr(o3d.visualization, "draw"):
-    #     print("使用 Open3D 新版可视化 API (支持透明度)")
-    #     import open3d.visualization.rendering as rendering
-        
-    #     # 上颌透明材质
-    #     mat_upper = rendering.MaterialRecord()
-    #     mat_upper.shader = "defaultLitTransparency"
-    #     mat_upper.base_color = [0.8, 0.2, 0.2, 0.5]  # RGBA，alpha=0.5 表示透明
-        
-    #     # 下颌不透明材质
-    #     mat_lower = rendering.MaterialRecord()
-    #     mat_lower.shader = "defaultLit"
-        
-    #     # 坐标系材质
-    #     mat_coord = rendering.MaterialRecord()
-    #     mat_coord.shader = "defaultLit"
-        
-    #     coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10)
-        
-    #     # 使用新版 draw API
-    #     o3d.visualization.draw([
-    #         {'name': 'upper_jaw', 'geometry': upper_mesh, 'material': mat_upper},
-    #         {'name': 'lower_jaw', 'geometry': lower_mesh, 'material': mat_lower},
-    #         {'name': 'coordinate', 'geometry': coordinate_frame, 'material': mat_coord}
-    #     ], title='上下颌咬合状态 (上颌透明)')
+    capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化上下颌咬合状态，上颌透明显示")
     parser.add_argument("-u", "--upper", default="../data/upper.ply", help="上颌PLY文件路径")
     parser.add_argument("-l", "--lower", default="../data/lower.ply", help="下颌PLY文件路径")
+    parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
+    parser.add_argument("--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
+    parser.add_argument("--colormap", default="jet", help="colormap name")
+    parser.add_argument("--out_dir", default=".", help="输出目录")
     args = parser.parse_args()
     
     try:
-        visualize_transparent_jaw(args.upper, args.lower)
+        visualize_transparent_jaw(args.upper, args.lower,
+                                  args.threshold, args.zoom_factor, args.colormap, args.out_dir)
     except Exception as e:
         print(f"错误: {e}")

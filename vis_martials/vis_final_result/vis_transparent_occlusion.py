@@ -18,7 +18,7 @@ def load_mesh(file_path):
     mesh.compute_vertex_normals()
     return mesh
 
-def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, output_dir="."):
+def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, output_dir, out_name):
     """
     使用 GUI 渲染器捕获透明网格的截图
     """
@@ -100,7 +100,7 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, ou
 
             # 延迟截图以确保渲染完成
             def do_screenshot():
-                output_path = os.path.join(output_dir, f"view_{view_name}.png")
+                output_path = os.path.join(output_dir, f"view_{view_name}_{out_name}.png")
                 scene.scene.scene.render_to_image(lambda img: save_image(img, output_path))
                 print(f"已保存截图: {output_path}")
 
@@ -122,7 +122,7 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, ou
 
     app.run()
     
-def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, colormap, out_dir):
+def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, colormap, out_dir, out_name):
     """
     可视化上下颌，上颌透明显示
     """ 
@@ -137,13 +137,14 @@ def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, co
     )
     
     # 自动截图
-    capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor)
+    capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, out_dir, out_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化上下颌咬合状态，上颌透明显示")
     parser.add_argument("-u", "--upper", default="../data/upper.ply", help="上颌PLY文件路径")
     parser.add_argument("-l", "--lower", default="../data/lower.ply", help="下颌PLY文件路径")
     parser.add_argument("-c", "--case", default="", help="案例名称")
+    parser.add_argument("-n", "--name", default="", help="输出名称")
     parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
     parser.add_argument("-z", "--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
     parser.add_argument("--colormap", default="jet", help="colormap name")
@@ -161,9 +162,12 @@ if __name__ == "__main__":
     else:
         upper = args.upper
         lower = args.lower
+    
+    print("Upper jaw file:", upper)
+    print("Lower jaw file:", lower)
         
     try:
         visualize_transparent_jaw(upper, lower,
-                                  args.threshold, args.zoom_factor, args.colormap, args.out_dir)
+                                  args.threshold, args.zoom_factor, args.colormap, args.out_dir, args.name)
     except Exception as e:
         print(f"错误: {e}")

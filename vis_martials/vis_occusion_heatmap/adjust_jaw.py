@@ -68,19 +68,18 @@ def compute_occlusal_normal(upper_pts: np.ndarray, lower_pts: np.ndarray) -> np.
     return normal
 
 
-def translate_lower(lower_geom, normal: np.ndarray, distance_mm: float):
-    """
-    将 lower 沿着咬合平面法向量的反方向平移 distance_mm。
-    """
-    t = (-normal) * float(distance_mm)  # 反方向
-    if isinstance(lower_geom, o3d.geometry.TriangleMesh):
-        lower_geom.translate(t, relative=True)
-    elif isinstance(lower_geom, o3d.geometry.PointCloud):
-        pts = np.asarray(lower_geom.points)
-        lower_geom.points = o3d.utility.Vector3dVector(pts + t)
-    else:
-        raise TypeError("不支持的几何类型")
-    return lower_geom
+def translate_lower(lower_geom, translation_vec: np.ndarray):
+	"""
+	将 lower 按给定平移向量 translation_vec 进行平移。
+	"""
+	if isinstance(lower_geom, o3d.geometry.TriangleMesh):
+		lower_geom.translate(translation_vec, relative=True)
+	elif isinstance(lower_geom, o3d.geometry.PointCloud):
+		pts = np.asarray(lower_geom.points)
+		lower_geom.points = o3d.utility.Vector3dVector(pts + translation_vec)
+	else:
+		raise TypeError("不支持的几何类型")
+	return lower_geom
 
 
 def compute_occlusal_frame(upper_pts: np.ndarray, lower_pts: np.ndarray):
@@ -128,6 +127,8 @@ def main():
     parser.add_argument("-l", "--lower", type=str, default="lower.ply", help="下颌 PLY 路径")
     parser.add_argument("-o", "--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.ply）")
     parser.add_argument("-d", "--distance_mm", type=float, default=-0.14, help="沿咬合平面反方向的平移量，单位毫米")
+    parser.add_argument("-sl", "--shift_left_mm", type=float, default=0.0, help="沿咬合平面左向的平移量，正值向左 (mm)")
+    parser.add_argument("-sf", "--shift_front_mm", type=float, default=0.0, help="沿咬合平面前向的平移量，正值向前 (mm)")
     parser.add_argument("-t", "--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），默认 5°")
     args = parser.parse_args()
 
@@ -140,8 +141,9 @@ def main():
     # 局部坐标系：n(上), l(左), f(前)
     n, l, f = compute_occlusal_frame(upper_pts, lower_pts)
 
-    # 平移：沿 n 的反方向
-    translate_lower(lower_geom, n, args.distance_mm)
+    # 综合平移：法向反方向 + 左向 + 前向
+    translation_vec = (-n) * args.distance_mm + l * args.shift_left_mm + f * args.shift_front_mm
+    translate_lower(lower_geom, translation_vec)
 
     # 倾斜：围绕“前”轴 f 旋转 -tilt_deg（左侧下沉）
     tilt_lower(f, lower_geom, args.tilt_deg)
@@ -161,7 +163,8 @@ def main():
         raise RuntimeError(f"写出失败: {out_path}")
 
     print(f"估计的咬合平面法向量(下->上): {n}")
-    print(f"已将 lower 沿反方向平移 {args.distance_mm} mm，并围绕前轴左倾 {args.tilt_deg}°")
+    print(f"已对 lower 应用平移向量 (mm): {translation_vec}")
+    print(f"并围绕前轴左倾 {args.tilt_deg}°")
     print(f"输出文件: {out_path}")
 
 

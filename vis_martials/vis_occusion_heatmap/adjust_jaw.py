@@ -124,11 +124,11 @@ def tilt_lower(left_or_front_axis: np.ndarray, lower_geom, tilt_deg: float, use_
 
 def main():
     parser = argparse.ArgumentParser(description="估计咬合平面并将 lower.ply 沿法向反方向平移指定毫米数")
-    parser.add_argument("--upper", type=str, default="upper.ply", help="上颌 PLY 路径")
-    parser.add_argument("--lower", type=str, default="lower.ply", help="下颌 PLY 路径")
-    parser.add_argument("--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.ply）")
-    parser.add_argument("--distance_mm", type=float, default=-0.14, help="沿咬合平面反方向的平移量，单位毫米")
-    parser.add_argument("--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），默认 5°")
+    parser.add_argument("-u", "--upper", type=str, default="upper.ply", help="上颌 PLY 路径")
+    parser.add_argument("-l", "--lower", type=str, default="lower.ply", help="下颌 PLY 路径")
+    parser.add_argument("-o", "--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.ply）")
+    parser.add_argument("-d", "--distance_mm", type=float, default=-0.14, help="沿咬合平面反方向的平移量，单位毫米")
+    parser.add_argument("-t", "--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），默认 5°")
     args = parser.parse_args()
 
     upper_geom, _ = read_geometry(args.upper)

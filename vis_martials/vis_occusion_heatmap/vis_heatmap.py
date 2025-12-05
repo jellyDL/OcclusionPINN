@@ -47,29 +47,35 @@ def compute_mesh_to_mesh_distance(source_mesh, target_mesh):
 def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None, threshold=0.5):
     """
     根据距离值为网格应用颜色映射
-    只显示距离小于threshold的区域，距离近的为红色，远的为蓝色
+    距离范围: -threshold 到 +threshold (-0.5mm 到 0.5mm)
+    负值表示穿透（红色），正值表示间隙（蓝色），0表示刚好接触（绿色/黄色）
     """
     # 设置距离范围
     if vmin is None:
-        vmin = 0.0
+        vmin = -threshold  # 负值表示穿透
     if vmax is None:
-        vmax = threshold
+        vmax = threshold   # 正值表示间隙
     
-    # 创建掩码：只处理距离小于阈值的顶点
-    mask = distances <= threshold
+    # 创建掩码：只处理在阈值范围内的顶点
+    mask = (distances >= vmin) & (distances <= vmax)
     
-    # 归一化距离值 (反转映射：小值->0.0->红色，大值->1.0->蓝色)
+    # 归一化距离值到 [0, 1]
+    # -0.5 -> 0.0 (红色，穿透)
+    # 0.0  -> 0.5 (绿色/黄色，刚好接触)
+    # +0.5 -> 1.0 (蓝色，间隙)
     normalized_distances = np.zeros_like(distances)
     if np.sum(mask) > 0:
         valid_distances = distances[mask]
-        # 反转归一化：0mm->1.0(红色), 0.5mm->0.0(蓝色)
-        normalized_distances[mask] = 1.0 - (valid_distances - vmin) / (vmax - vmin)
+        # 线性映射: vmin(-0.5) -> 0, vmax(+0.5) -> 1
+        normalized_distances[mask] = (valid_distances - vmin) / (vmax - vmin)
     
-    # 应用colormap (jet: 0->红色, 1->蓝色)
+    # 应用colormap (jet: 0->蓝色, 0.5->绿色, 1->红色)
+    # 但我们希望: 穿透(-0.5)->红色, 接触(0)->绿色, 间隙(+0.5)->蓝色
+    # 所以需要反转: 1 - normalized
     cmap = cm.get_cmap(colormap)
-    colors = cmap(normalized_distances)[:, :3]
+    colors = cmap(1.0 - normalized_distances)[:, :3]
     
-    # 对于超过阈值的顶点，设置为灰色（不显著）
+    # 对于超出阈值范围的顶点，设置为灰色（不显著）
     colors[~mask] = [0.7, 0.7, 0.7]  # 灰色
     
     # 设置网格颜色
@@ -294,9 +300,9 @@ def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), pre
     vis.capture_screen_image(fname, do_render=True)
     
     if type == "lowerjaw":
-        # add colorbar
+        # add colorbar - 范围从 -0.5 到 0.5
         fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
-        add_colorbar_to_image(fname, fname_with_cbar, vmin=0, vmax=0.5, colormap=colormap)
+        add_colorbar_to_image(fname, fname_with_cbar, vmin=-0.5, vmax=0.5, colormap=colormap)
 
     vis.destroy_window()
 

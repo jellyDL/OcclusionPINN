@@ -207,6 +207,8 @@ def main():
     parser.add_argument('--bottom', type=int, default=0, help='下边距（像素，默认: 0）')
     parser.add_argument('--bg-color', type=str, default='255,255,255',
                        help='背景色 RGB，格式: R,G,B (默认: 255,255,255)')
+    parser.add_argument('--add-caption', type=str, default='',
+                       help='合并后图片下方添加文字说明（可选）')
     
     args = parser.parse_args()
     
@@ -250,10 +252,12 @@ def main():
     except Exception as e:
         print(f"错误: {e}")
 
-    add_caption_below(image_path=args.output, out_path=args.output,
-	text="(a) The original collected occlusion.                              (b) The predicted occlusion.",
-	font_path=None, font_size=48, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-    offset_left=80, offset_top=8, padding_bottom= 8, line_spacing=4)
+    if args.add_caption:
+        print("\n添加图片下方文字说明...")
+        add_caption_below(image_path=args.output, out_path=args.output,
+        text=args.add_caption,
+        font_path=None, font_size=48, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
+        offset_left=80, offset_top=8, padding_bottom= 8, line_spacing=4)
 
 if __name__ == "__main__":
     main()

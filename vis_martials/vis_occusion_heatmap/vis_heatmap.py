@@ -247,7 +247,7 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
-def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
+def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
     """
     沿 Z 轴从上到下截取多张图并保存。
     mesh: open3d TriangleMesh
@@ -302,7 +302,7 @@ def capture_top_to_bottom(mesh, type, out_dir, steps=10, img_size=(800,960), pre
     if type == "lowerjaw":
         # add colorbar - 范围从 -0.5 到 0.5
         fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
-        add_colorbar_to_image(fname, fname_with_cbar, vmin=-0.5, vmax=0.5, colormap=colormap)
+        add_colorbar_to_image(fname, fname_with_cbar, vmin=-threshold, vmax=threshold, colormap=colormap)
 
     vis.destroy_window()
 
@@ -350,9 +350,9 @@ def combine_upper_lower_images(upper_img_path, lower_with_cbar_path, out_path, b
 if __name__ == "__main__":
     # 替换原示例入口，增加保存从上往下截图的参数
     parser = argparse.ArgumentParser(description="可视化并可选保存牙颌咬合热力图和从上往下截图序列")
-    parser.add_argument("--upper", default="data/test1_upper.ply", help="Upper jaw PLY file")
-    parser.add_argument("--lower", default="data/test1_lower_final.ply", help="Lower jaw PLY file")
-    parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
+    parser.add_argument("-u", "--upper", default="data/test1_upper.ply", help="Upper jaw PLY file")
+    parser.add_argument("-l", "--lower", default="data/test1_lower_final.ply", help="Lower jaw PLY file")
+    parser.add_argument("-t", "--threshold", type=float, default=0.5, help="咬合阈值 mm")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
     parser.add_argument("--vertical_steps", type=int, default=10, help="从上往下截图的帧数")
@@ -374,8 +374,8 @@ if __name__ == "__main__":
         # 若需要保存从上往下的截图序列（保存并退出）
         # 使用着色后的网格进行截图（上/下均为 open3d mesh）
         print(f"开始保存从上往下的截图...")
-        capture_top_to_bottom(upper_mesh, "upperjaw", out_dir, steps=args.vertical_steps, img_size=(860,800))
-        capture_top_to_bottom(lower_mesh, "lowerjaw", out_dir, steps=args.vertical_steps, img_size=(860,800))
+        capture_top_to_bottom(upper_mesh, "upperjaw", threshold, out_dir, steps=args.vertical_steps, img_size=(860,800))
+        capture_top_to_bottom(lower_mesh, "lowerjaw", threshold, out_dir, steps=args.vertical_steps, img_size=(860,800))
         print("序列保存完成。")
         
         # 拼接上下颌图片

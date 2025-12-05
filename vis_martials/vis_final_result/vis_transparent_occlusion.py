@@ -143,14 +143,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化上下颌咬合状态，上颌透明显示")
     parser.add_argument("-u", "--upper", default="../data/upper.ply", help="上颌PLY文件路径")
     parser.add_argument("-l", "--lower", default="../data/lower.ply", help="下颌PLY文件路径")
+    parser.add_argument("-c", "--case", default="", help="案例名称")
     parser.add_argument("--threshold", type=float, default=0.5, help="咬合阈值 mm")
-    parser.add_argument("--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
+    parser.add_argument("-z", "--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
     args = parser.parse_args()
     
+    if args.case != "":
+        upper = args.case+"-UpperJaw.stl"
+        if not os.path.exists(upper):
+            upper = upper[:-4]+".ply"
+        
+        lower = args.case+"-LowerJaw.stl"
+        if not os.path.exists(lower):
+            lower = upper[:-4]+".ply"
+    else:
+        upper = args.upper
+        lower = args.lower
+        
     try:
-        visualize_transparent_jaw(args.upper, args.lower,
+        visualize_transparent_jaw(upper, lower,
                                   args.threshold, args.zoom_factor, args.colormap, args.out_dir)
     except Exception as e:
         print(f"错误: {e}")

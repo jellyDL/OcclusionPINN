@@ -19,14 +19,20 @@ def load_mesh(file_path):
 
 def compute_mesh_to_mesh_distance(source_mesh, target_mesh):
     """
-    计算源网格到目标网格的点对点距离
+    计算源网格到目标网格的点对点带符号距离
+    负值表示穿透（源点在目标网格内部/法线反侧）
     """
+    # 确保目标网格有法线
+    if not target_mesh.has_vertex_normals():
+        target_mesh.compute_vertex_normals()
+
     # 将网格转换为点云
     source_pcd = o3d.geometry.PointCloud()
     source_pcd.points = source_mesh.vertices
     
     target_pcd = o3d.geometry.PointCloud()
     target_pcd.points = target_mesh.vertices
+    target_pcd.normals = target_mesh.vertex_normals
     
     # 为目标点云构建KD树以加速最近邻搜索
     target_tree = o3d.geometry.KDTreeFlann(target_pcd)
@@ -35,11 +41,28 @@ def compute_mesh_to_mesh_distance(source_mesh, target_mesh):
     distances = []
     source_points = np.asarray(source_pcd.points)
     target_points = np.asarray(target_pcd.points)
+    target_normals = np.asarray(target_pcd.normals)
     
     for point in source_points:
         [_, idx, _] = target_tree.search_knn_vector_3d(point, 1)
-        nearest_point = target_points[idx[0]]
-        dist = np.linalg.norm(point - nearest_point)
+        nearest_idx = idx[0]
+        nearest_point = target_points[nearest_idx]
+        nearest_normal = target_normals[nearest_idx]
+        
+        # 计算欧氏距离
+        diff_vec = point - nearest_point
+        dist = np.linalg.norm(diff_vec)
+        
+        # 判断符号：如果 (point - nearest_point) 与 nearest_normal 点积为负，说明在法线反侧（穿透）
+        # 注意：通常法线指向网格外部。点在内部时，向量指向外部，与法线同向？
+        # 修正：
+        # 向量 v = point - nearest_point (从表面指向源点)
+        # 法线 n 指向外部
+        # dot(v, n) > 0 => 源点在外部 (正距离)
+        # dot(v, n) < 0 => 源点在内部 (负距离, 穿透)
+        if np.dot(diff_vec, nearest_normal) < 0:
+            dist = -dist
+            
         distances.append(dist)
     
     return np.array(distances)
@@ -55,9 +78,12 @@ def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None
         vmin = -threshold  # 负值表示穿透
     if vmax is None:
         vmax = threshold   # 正值表示间隙
+        
+    print("距离范围设置为: ", vmin, " 到 ", vmax)
     
     # 创建掩码：只处理在阈值范围内的顶点
-    mask = (distances >= vmin) & (distances <= vmax)
+    # mask = (distances >= vmin) & (distances <= vmax)
+    mask = distances <= vmax
     
     # 归一化距离值到 [0, 1]
     # -0.5 -> 0.0 (红色，穿透)
@@ -72,7 +98,7 @@ def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None
     # 应用colormap (jet: 0->蓝色, 0.5->绿色, 1->红色)
     # 但我们希望: 穿透(-0.5)->红色, 接触(0)->绿色, 间隙(+0.5)->蓝色
     # 所以需要反转: 1 - normalized
-    cmap = cm.get_cmap(colormap)
+    cmap = mpl.colormaps[colormap]
     colors = cmap(1.0 - normalized_distances)[:, :3]
     
     # 对于超出阈值范围的顶点，设置为灰色（不显著）
@@ -94,7 +120,7 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=150)
 	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
 	norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-	cmap = mpl.cm.get_cmap(colormap)
+	cmap = mpl.colormaps[colormap]
 	# 反转 colormap：让小值（底部）显示红色，大值（顶部）显示蓝色
 	cmap_reversed = cmap.reversed()
 	cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap_reversed, norm=norm, orientation='vertical')
@@ -130,7 +156,7 @@ def create_colorbar_mesh(vmin, vmax, colormap='jet', height=100, width=20):
     values = np.linspace(1, 0, height)  # 从上到下
     colorbar_array = np.tile(values.reshape(-1, 1), (1, width))
     
-    cmap = cm.get_cmap(colormap)
+    cmap = mpl.colormaps[colormap]
     colors = cmap(colorbar_array.flatten())[:, :3]
     
     # 创建简单的平面网格作为颜色条
@@ -182,10 +208,14 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     
     # 统计信息
     upper_close = np.sum(upper_distances <= threshold)
+    upper_penetrate = np.sum(upper_distances < 0)
     lower_close = np.sum(lower_distances <= threshold)
+    lower_penetrate = np.sum(lower_distances <= 0)
     print(f"\n距离统计:")
     print(f"上颌总顶点数: {len(upper_distances)}, 咬合区域(<{threshold}mm): {upper_close} ({100*upper_close/len(upper_distances):.1f}%)")
+    print(f"                     咬合区域(< 0 mm): {upper_penetrate} ({100*upper_penetrate/len(upper_distances):.1f}%)")
     print(f"下颌总顶点数: {len(lower_distances)}, 咬合区域(<{threshold}mm): {lower_close} ({100*lower_close/len(lower_distances):.1f}%)")
+    print(f"                     咬合区域(< 0 mm): {lower_penetrate} ({100*lower_penetrate/len(lower_distances):.1f}%)")
     print(f"上颌咬合区域距离范围: {np.min(upper_distances[upper_distances<=threshold]):.3f} - {threshold:.3f} mm")
     print(f"下颌咬合区域距离范围: {np.min(lower_distances[lower_distances<=threshold]):.3f} - {threshold:.3f} mm")
     

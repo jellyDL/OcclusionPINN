@@ -385,6 +385,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--threshold", type=float, default=0.5, help="咬合阈值 mm")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
+    parser.add_argument("-n", "--out_name", type=str, default="", help="输出图片名字后缀")
     parser.add_argument("--vertical_steps", type=int, default=10, help="从上往下截图的帧数")
     args = parser.parse_args()
 
@@ -393,6 +394,7 @@ if __name__ == "__main__":
     threshold = args.threshold
     colormap = args.colormap
     out_dir = args.out_dir
+    out_name = args.out_name
     os.makedirs(out_dir, exist_ok=True)
 
     try:
@@ -411,7 +413,7 @@ if __name__ == "__main__":
         # 拼接上下颌图片
         upper_img_path = os.path.join(out_dir, "vertical_upperjaw.png")
         lower_with_cbar_path = os.path.join(out_dir, "heatmap_with_colorbar.png")
-        combined_path = os.path.join(out_dir, "combined_upper_lower.png")
+        combined_path = os.path.join(out_dir, "combined_upper_lower_"+out_name+".png")
         if os.path.exists(upper_img_path) and os.path.exists(lower_with_cbar_path):
             combine_upper_lower_images(upper_img_path, lower_with_cbar_path, combined_path)
         else:

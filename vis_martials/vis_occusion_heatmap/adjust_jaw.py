@@ -121,15 +121,29 @@ def tilt_lower(left_or_front_axis: np.ndarray, lower_geom, tilt_deg: float, use_
     return lower_geom
 
 
+def pitch_lower(left_axis: np.ndarray, lower_geom, pitch_deg: float):
+    """
+    围绕“左”轴旋转以实现前后倾斜。
+    正值：前部抬起。
+    """
+    axis = left_axis / (np.linalg.norm(left_axis) + 1e-12)
+    angle_rad = np.deg2rad(pitch_deg)
+    R = o3d.geometry.get_rotation_matrix_from_axis_angle(axis * angle_rad)
+    center = lower_geom.get_center()
+    lower_geom.rotate(R, center=center)
+    return lower_geom
+
+
 def main():
     parser = argparse.ArgumentParser(description="估计咬合平面并将 lower.ply 沿法向反方向平移指定毫米数")
     parser.add_argument("-u", "--upper", type=str, default="upper.ply", help="上颌 PLY 路径")
     parser.add_argument("-l", "--lower", type=str, default="lower.ply", help="下颌 PLY 路径")
-    parser.add_argument("-o", "--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.ply）")
+    parser.add_argument("-o", "--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.stl）")
     parser.add_argument("-d", "--distance_mm", type=float, default=-0.14, help="沿咬合平面反方向的平移量，单位毫米")
     parser.add_argument("-sl", "--shift_left_mm", type=float, default=0.0, help="沿咬合平面左向的平移量，正值向左 (mm)")
     parser.add_argument("-sf", "--shift_front_mm", type=float, default=0.0, help="沿咬合平面前向的平移量，正值向前 (mm)")
     parser.add_argument("-t", "--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），默认 5°")
+    parser.add_argument("-p", "--pitch_deg", type=float, default=0.0, help="前后倾斜的角度（度），正值前部抬起")
     args = parser.parse_args()
 
     upper_geom, _ = read_geometry(args.upper)
@@ -148,10 +162,13 @@ def main():
     # 倾斜：围绕“前”轴 f 旋转 -tilt_deg（左侧下沉）
     tilt_lower(f, lower_geom, args.tilt_deg)
 
+    # 前后倾斜：围绕“左”轴 l 旋转
+    pitch_lower(l, lower_geom, args.pitch_deg)
+
     out_path = args.out
     if out_path is None:
         base_dir = os.path.dirname(os.path.abspath(args.lower))
-        out_path = os.path.join(base_dir, "lower_shifted.ply")
+        out_path = os.path.join(base_dir, "lower_shifted.stl")
 
     ok = False
     if isinstance(lower_geom, o3d.geometry.TriangleMesh):
@@ -164,7 +181,7 @@ def main():
 
     print(f"估计的咬合平面法向量(下->上): {n}")
     print(f"已对 lower 应用平移向量 (mm): {translation_vec}")
-    print(f"并围绕前轴左倾 {args.tilt_deg}°")
+    print(f"并围绕前轴左倾 {args.tilt_deg}°，围绕左轴前后倾 {args.pitch_deg}°")
     print(f"输出文件: {out_path}")
 
 

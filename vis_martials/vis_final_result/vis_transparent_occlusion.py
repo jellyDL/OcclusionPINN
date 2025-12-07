@@ -146,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--case", default="", help="案例名称")
     parser.add_argument("-n", "--name", default="", help="输出名称")
     parser.add_argument("-t", "--threshold", type=float, default=0.5, help="咬合阈值 mm")
-    parser.add_argument("-z", "--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
+    parser.add_argument("-z", "--zoom_factor", type=float, default=0.8, help="缩放因子：值越小，物体在画面中越大")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
     args = parser.parse_args()

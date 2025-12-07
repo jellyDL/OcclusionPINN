@@ -168,7 +168,7 @@ def main():
     out_path = args.out
     if out_path is None:
         base_dir = os.path.dirname(os.path.abspath(args.lower))
-        out_path = os.path.join(base_dir, "lower_shifted.stl")
+        out_path = os.path.join(base_dir, "lower_shifted"+args.upper[-4:])
 
     ok = False
     if isinstance(lower_geom, o3d.geometry.TriangleMesh):

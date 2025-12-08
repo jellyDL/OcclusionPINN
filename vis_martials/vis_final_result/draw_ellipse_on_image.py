@@ -7,7 +7,7 @@ import math
 "在图片上绘制椭圆"
 "python draw_ellipse_on_image.py -i view_front_case.png -o view_front_case_final.png"
 
-def draw_dashed_ellipse(img, center, axes, angle, color, thickness=10, dash_length=30):
+def draw_dashed_ellipse(img, center, axes, angle, color, thickness=15, dash_length=40):
     """
     绘制虚线椭圆
     """
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     # parser.add_argument("-ax", "--axes", type=int, nargs=2, required=True, help="长轴和短轴半径 (radius_x, radius_y)")
     # parser.add_argument("-a", "--angle", type=float, default=0.0, help="旋转角度")
     parser.add_argument("--color", type=int, nargs=3, default=[0, 0, 255], help="颜色 B G R (默认红色: 0 0 255)")
-    parser.add_argument("--thickness", type=int, default=10, help="线宽")
+    parser.add_argument("--thickness", type=int, default=15, help="线宽")
 
     args = parser.parse_args()
 
@@ -73,30 +73,59 @@ if __name__ == "__main__":
 
     
     #### LINE 1 ####
-    
-    (x, y) = 490,690
-    (lr,sr) = 430,170
+    (x, y) = 490,680
+    (lr,sr) = 410,170
     angle = -60
-
-    img = draw_dashed_ellipse(img, (x, y), (lr,sr), angle,  (0, 0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y), (lr,sr), angle,  (0, 255, 0))
-    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (0, 255, 0))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (87, 139, 46))
 
     (x, y) = 1450,840
-    (lr,sr) = 480,180
+    (lr,sr) = 460,180
     angle = 66
-    img = draw_dashed_ellipse(img, (x, y), (lr,sr), angle,  (0, 0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y), (lr,sr), angle,  (0, 255, 0))
-    img = draw_dashed_ellipse(img, (x+w*2, y), (lr,sr), angle,  (0, 255, 0))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x+w*2, y), (lr,sr), angle,  (87, 139, 46))
 
     #### LINE 2 ####
     (x, y) = 1400,760+h
     (lr,sr) = 580,210
     angle = 67
-    img = draw_dashed_ellipse(img, (x, y), (lr,sr), angle,  (0, 0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y), (lr,sr), angle,  (0, 255, 0))
-    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (0, 255, 0))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (34, 139, 34))
+    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (34, 139, 34))
     
+    #### LINE 3 ####
+    (x, y) = 330,1240+2*h
+    (lr,sr) = 250,180
+    angle = -60
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (34, 139, 34))
+    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (34, 139, 34))
+    
+    (x, y) = 1550,1230+2*h
+    (lr,sr) = 350,240
+    angle = 69
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (34, 139, 34))
+    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (34, 139, 34))
+    
+        
+    #### LINE 4 ####
+    (x, y) = 390,1050+3*h
+    (lr,sr) = 370,190
+    angle = -61
+
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (255,  0,  0))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (87, 139, 46))
+
+    (x, y) = 1480,1040+3*h
+    (lr,sr) = 520,220
+    angle = 75
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (255,  0,  0))
+    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x+w*2, y), (lr,sr), angle,  (87, 139, 46))
     
         # 保存图片
     cv2.imwrite(output_path, img)

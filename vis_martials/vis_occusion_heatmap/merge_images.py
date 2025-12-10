@@ -253,11 +253,13 @@ def main():
         print(f"错误: {e}")
 
     if args.add_caption:
+        font_size = 120
+        add_caption = "              Original Input                                   After Optimization                                   Ground Truth"
         print("\n添加图片下方文字说明...")
         add_caption_below(image_path=args.output, out_path=args.output,
-        text=args.add_caption,
-        font_path=None, font_size=190, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-        offset_left=80, offset_top=8, padding_bottom= 8, line_spacing=4)
+        text=add_caption,
+        font_path=None, font_size=font_size, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
+        offset_left=80, offset_top=40, padding_bottom= 40, line_spacing=4)
 
 if __name__ == "__main__":
     main()

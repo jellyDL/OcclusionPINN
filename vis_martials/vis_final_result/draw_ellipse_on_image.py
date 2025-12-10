@@ -116,14 +116,14 @@ if __name__ == "__main__":
     (lr,sr) = 370,190
     angle = -61
 
-    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (255,  0,  0))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,  0,  255))
     img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
     img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (87, 139, 46))
 
     (x, y) = 1480,1040+3*h
     (lr,sr) = 520,220
     angle = 75
-    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (255,  0,  0))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,  0,  255))
     img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (87, 139, 46))
     img = draw_dashed_ellipse(img, (x+w*2, y), (lr,sr), angle,  (87, 139, 46))
     

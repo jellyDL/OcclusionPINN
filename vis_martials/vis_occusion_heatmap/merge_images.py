@@ -294,8 +294,8 @@ def main():
     #     offset_left=50, offset_top=0, padding_bottom= 8, line_spacing=4)
         
     if args.add_caption:
-        font_size = 120
-        add_caption = "              Original Input                                   After Optimization                                   Ground Truth"
+        font_size = 128
+        add_caption = "                Original Input                                    After Optimization                                  Ground Truth"
         print("\n添加图片下方文字说明...")
         add_caption_below(image_path=args.output, out_path=args.output,
         text=add_caption,

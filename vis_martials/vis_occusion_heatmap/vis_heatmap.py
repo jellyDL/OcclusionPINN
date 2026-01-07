@@ -7,6 +7,16 @@ import argparse
 import matplotlib as mpl
 from PIL import Image
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    val = value.lower()
+    if val in {"true", "1", "yes", "y", "t"}:
+        return True
+    if val in {"false", "0", "no", "n", "f"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Invalid boolean value: {value}")
+
 "功能说明: 可视化上下颌的咬合状态，增加热力分布显示功能，并分上下颌分别截图保存"
 "exp python vis_heatmap.py --lower data/test1_lower_open.ply"
 
@@ -115,18 +125,18 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	main_img = Image.open(image_path).convert("RGBA")
 	h = main_img.height
 	# 生成 colorbar（matplotlib）- 调整高度为主图的 60%
-	cbar_height_ratio = 0.85  # 新增：控制 colorbar 高度占主图比例
+	cbar_height_ratio = 0.75  # 新增：控制 colorbar 高度占主图比例
 	cbar_h = int(h * cbar_height_ratio)
-	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=150)
+	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=200)
 	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
 	norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 	cmap = mpl.colormaps[colormap]
 	# 反转 colormap：让小值（底部）显示红色，大值（顶部）显示蓝色
 	cmap_reversed = cmap.reversed()
 	cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap_reversed, norm=norm, orientation='vertical')
-	cb.set_label('Distance(mm)', fontsize=20)
+	cb.set_label('Distance(mm)', fontsize=26)
 	# 设置刻度标签字体大小
-	cb.ax.tick_params(labelsize=18)
+	cb.ax.tick_params(labelsize=20)
 	tmp_cbar = os.path.splitext(out_path)[0] + "_cbar_tmp.png"
 	fig.savefig(tmp_cbar, bbox_inches='tight', pad_inches=0.1)
 	plt.close(fig)
@@ -277,7 +287,8 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
-def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(800,960), prefix="vertical"):
+def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(800,960), 
+                          need_colorbar=True, prefix="vertical"):
     """
     沿 Z 轴从上到下截取多张图并保存。
     mesh: open3d TriangleMesh
@@ -329,7 +340,7 @@ def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(80
     fname = os.path.join(out_dir, f"{prefix}_{str(type)}.png")
     vis.capture_screen_image(fname, do_render=True)
     
-    if type == "lowerjaw":
+    if type == "lowerjaw" and need_colorbar:
         # add colorbar - 范围从 -0.5 到 0.5
         fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
         add_colorbar_to_image(fname, fname_with_cbar, vmin=-threshold, vmax=threshold, colormap=colormap)
@@ -387,6 +398,8 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", default=".", help="输出目录")
     parser.add_argument("-n", "--out_name", type=str, default="", help="输出图片名字后缀")
     parser.add_argument("--vertical_steps", type=int, default=10, help="从上往下截图的帧数")
+    parser.add_argument("--add_colorbar", type=str2bool, default=True,
+                        help="是否需要colorbar（可传 True/False，默认 True）")
     args = parser.parse_args()
 
     upper_file = args.upper
@@ -395,6 +408,7 @@ if __name__ == "__main__":
     colormap = args.colormap
     out_dir = args.out_dir
     out_name = args.out_name
+    need_colorbar = args.add_colorbar
     os.makedirs(out_dir, exist_ok=True)
 
     try:
@@ -406,16 +420,21 @@ if __name__ == "__main__":
         # 若需要保存从上往下的截图序列（保存并退出）
         # 使用着色后的网格进行截图（上/下均为 open3d mesh）
         print(f"开始保存从上往下的截图...")
-        capture_top_to_bottom(upper_mesh, "upperjaw", threshold, out_dir, steps=args.vertical_steps, img_size=(860,800))
-        capture_top_to_bottom(lower_mesh, "lowerjaw", threshold, out_dir, steps=args.vertical_steps, img_size=(860,800))
+        capture_top_to_bottom(upper_mesh, "upperjaw", threshold, out_dir, 
+                              steps=args.vertical_steps, img_size=(860,800))
+        capture_top_to_bottom(lower_mesh, "lowerjaw", threshold, out_dir, 
+                              steps=args.vertical_steps, img_size=(860,800), need_colorbar=need_colorbar)
         print("序列保存完成。")
         
         # 拼接上下颌图片
         upper_img_path = os.path.join(out_dir, "vertical_upperjaw.png")
-        lower_with_cbar_path = os.path.join(out_dir, "heatmap_with_colorbar.png")
+        if need_colorbar:
+            lower_img_path = os.path.join(out_dir, "heatmap_with_colorbar.png")
+        else:
+            lower_img_path = os.path.join(out_dir, "vertical_lowerjaw.png")
         combined_path = os.path.join(out_dir, "combined_upper_lower_"+out_name+".png")
-        if os.path.exists(upper_img_path) and os.path.exists(lower_with_cbar_path):
-            combine_upper_lower_images(upper_img_path, lower_with_cbar_path, combined_path)
+        if os.path.exists(upper_img_path) and os.path.exists(lower_img_path):
+            combine_upper_lower_images(upper_img_path, lower_img_path, combined_path)
         else:
             print("警告: 缺少必要图片，无法生成拼接图。")
                 

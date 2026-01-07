@@ -19,3 +19,5 @@ python vis_transparent_occlusion.py -u data_penetrate/case4-UpperJaw.ply -l data
 python ../vis_occusion_heatmap/merge_images.py view_front_case4_raw.png view_front_case4_opt.png view_front_case4_gt.png -o view_front_case4.png --spacing 200 --spacing-color "235,235,235"
 #
 python ../vis_occusion_heatmap/merge_images.py view_front_case3.png view_front_case2.png view_front_case1.png view_front_case4.png  -o view_front_case.png -d vertical -c "T" --spacing 50  --spacing-color "235,235,235"
+
+python draw_ellipse_on_image.py -i view_front_case.png -o view_front_case_final.png

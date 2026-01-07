@@ -39,7 +39,7 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, ou
     # 上颌透明材质 - 保留原始纹理/顶点颜色
     mat_upper = rendering.MaterialRecord()
     mat_upper.shader = "defaultLitTransparency"
-    mat_upper.base_color = [1.0, 1.0, 1.0, 0.6]  # 白色基底 + 透明度，让原始颜色显示
+    mat_upper.base_color = [1.0, 1.0, 1.0, 0.7]  # 白色基底 + 透明度，让原始颜色显示
     mat_upper.base_roughness = 0.3
     mat_upper.base_reflectance = 0.5
 

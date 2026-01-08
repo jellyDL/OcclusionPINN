@@ -284,23 +284,23 @@ def main():
     except Exception as e:
         print(f"错误: {e}")
 
-    # if args.add_caption:
-    #     font_size = 50
-    #     add_caption = "(a) The original collected occlusion             (b) The predicted occlusion"
-    #     print("\n添加图片下方文字说明...")
-    #     add_caption_below(image_path=args.output, out_path=args.output,
-    #     text=add_caption,
-    #     font_path=None, font_size=font_size, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-    #     offset_left=50, offset_top=0, padding_bottom= 8, line_spacing=4)
+    if args.add_caption == "heatmap":
+        font_size = 50
+        add_caption = "(a) The original collected occlusion             (b) The predicted occlusion"
+        print("\n添加图片下方文字说明...")
+        add_caption_below(image_path=args.output, out_path=args.output,
+        text=add_caption,
+        font_path=None, font_size=font_size, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
+        offset_left=50, offset_top=0, padding_bottom= 8, line_spacing=4)
         
-    if args.add_caption:
+    elif args.add_caption == "final":
         font_size = 128
         add_caption = "                Original Input                                    After Optimization                                  Ground Truth"
         print("\n添加图片下方文字说明...")
         add_caption_below(image_path=args.output, out_path=args.output,
         text=add_caption,
         font_path=None, font_size=font_size, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-        offset_left=80, offset_top=40, padding_bottom= 40, line_spacing=4)
+        offset_left=80, offset_top=50, padding_bottom= 50, line_spacing=4)
 
 if __name__ == "__main__":
     main()

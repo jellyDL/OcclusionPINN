@@ -77,18 +77,13 @@ def compute_mesh_to_mesh_distance(source_mesh, target_mesh):
     
     return np.array(distances)
 
-def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None, threshold=0.5):
+def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None):
     """
     根据距离值为网格应用颜色映射
-    距离范围: -threshold 到 +threshold (-0.5mm 到 0.5mm)
+    距离范围: vmin 到 vmax
     负值表示穿透（红色），正值表示间隙（蓝色），0表示刚好接触（绿色/黄色）
     """
-    # 设置距离范围
-    if vmin is None:
-        vmin = -threshold  # 负值表示穿透
-    if vmax is None:
-        vmax = threshold   # 正值表示间隙
-        
+
     print("距离范围设置为: ", vmin, " 到 ", vmax)
     
     # 创建掩码：只处理在阈值范围内的顶点
@@ -117,7 +112,7 @@ def apply_colormap_to_mesh(mesh, distances, colormap='jet', vmin=None, vmax=None
     # 设置网格颜色
     mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
     
-    return mesh, vmin, vmax
+    return mesh
 
 # 新增：把 colorbar 拼接到截图右侧
 def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='jet', pad_ratio=0.1, cbar_width_ratio=0.12):
@@ -125,7 +120,7 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	main_img = Image.open(image_path).convert("RGBA")
 	h = main_img.height
 	# 生成 colorbar（matplotlib）- 调整高度为主图的 60%
-	cbar_height_ratio = 0.75  # 新增：控制 colorbar 高度占主图比例
+	cbar_height_ratio = 0.8  # 新增：控制 colorbar 高度占主图比例
 	cbar_h = int(h * cbar_height_ratio)
 	fig = plt.figure(figsize=(1.0, cbar_h/100.0), dpi=200)
 	ax = fig.add_axes([0.1, 0.1, 0.3, 0.8])
@@ -142,7 +137,7 @@ def add_colorbar_to_image(image_path, out_path, vmin=0.0, vmax=1.0, colormap='je
 	plt.close(fig)
 	cbar_img = Image.open(tmp_cbar).convert("RGBA")
 	# 调整 colorbar 宽度（高度已由 figsize 控制）
-	cbar_w = max(140, int(h * cbar_width_ratio))
+	cbar_w = max(160, int(h * cbar_width_ratio))
 	print("Resizing colorbar to :", cbar_w, cbar_h)
 	cbar_img = cbar_img.resize((cbar_w, cbar_h), resample=Image.BICUBIC)
 	# 组合 - colorbar 垂直居中放置
@@ -193,7 +188,7 @@ def create_colorbar_mesh(vmin, vmax, colormap='jet', height=100, width=20):
     
     return colorbar_mesh
 
-def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshold=0.5, out_dir="."):
+def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', vmin=-0.1, vmax=0.5, out_dir="."):
     """
     主函数：可视化牙颌咬合热力图
     threshold: 只显示小于此距离的咬合区域 (单位: mm)
@@ -217,32 +212,26 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     lower_distances = compute_mesh_to_mesh_distance(lower_mesh, upper_mesh)
     
     # 统计信息
-    upper_close = np.sum(upper_distances <= threshold)
-    upper_penetrate = np.sum(upper_distances < 0)
-    lower_close = np.sum(lower_distances <= threshold)
-    lower_penetrate = np.sum(lower_distances <= 0)
-    print(f"\n距离统计:")
-    print(f"上颌总顶点数: {len(upper_distances)}, 咬合区域(<{threshold}mm): {upper_close} ({100*upper_close/len(upper_distances):.1f}%)")
-    print(f"                     咬合区域(< 0 mm): {upper_penetrate} ({100*upper_penetrate/len(upper_distances):.1f}%)")
-    print(f"下颌总顶点数: {len(lower_distances)}, 咬合区域(<{threshold}mm): {lower_close} ({100*lower_close/len(lower_distances):.1f}%)")
-    print(f"                     咬合区域(< 0 mm): {lower_penetrate} ({100*lower_penetrate/len(lower_distances):.1f}%)")
-    print(f"上颌咬合区域距离范围: {np.min(upper_distances[upper_distances<=threshold]):.3f} - {threshold:.3f} mm")
-    print(f"下颌咬合区域距离范围: {np.min(lower_distances[lower_distances<=threshold]):.3f} - {threshold:.3f} mm")
+    # upper_close = np.sum(upper_distances <= threshold)
+    # upper_penetrate = np.sum(upper_distances < 0)
+    # lower_close = np.sum(lower_distances <= threshold)
+    # lower_penetrate = np.sum(lower_distances <= 0)
     
-    # 应用颜色映射（只显示threshold范围内）
-    print(f"\n应用颜色映射（阈值: {threshold}mm）...")
-    upper_mesh_colored, vmin, vmax = apply_colormap_to_mesh(
-        upper_mesh, upper_distances, colormap, vmin=0.0, vmax=threshold, threshold=threshold
-    )
-    lower_mesh_colored, _, _ = apply_colormap_to_mesh(
-        lower_mesh, lower_distances, colormap, vmin=0.0, vmax=threshold, threshold=threshold
-    )
+    # print(f"\n距离统计:")
+    # print(f"上颌总顶点数: {len(upper_distances)}, 咬合区域(<{threshold}mm): {upper_close} ({100*upper_close/len(upper_distances):.1f}%)")
+    # print(f"                     咬合区域(< 0 mm): {upper_penetrate} ({100*upper_penetrate/len(upper_distances):.1f}%)")
+    # print(f"下颌总顶点数: {len(lower_distances)}, 咬合区域(<{threshold}mm): {lower_close} ({100*lower_close/len(lower_distances):.1f}%)")
+    # print(f"                     咬合区域(< 0 mm): {lower_penetrate} ({100*lower_penetrate/len(lower_distances):.1f}%)")
+    # print(f"上颌咬合区域距离范围: {np.min(upper_distances[upper_distances<=threshold]):.3f} - {threshold:.3f} mm")
+    # print(f"下颌咬合区域距离范围: {np.min(lower_distances[lower_distances<=threshold]):.3f} - {threshold:.3f} mm")
+    
+    # 应用颜色映射
+    print(f"\n应用颜色映射 {vmin} - {vmax} mm ...")
+    upper_mesh_colored = apply_colormap_to_mesh(upper_mesh, upper_distances, colormap, vmin, vmax)
+    lower_mesh_colored = apply_colormap_to_mesh(lower_mesh, lower_distances, colormap, vmin, vmax)
     # 着色后务必重新计算顶点法线，确保光照与高光显示网格细节
     try:
         upper_mesh_colored.compute_vertex_normals()
-    except Exception:
-        pass
-    try:
         lower_mesh_colored.compute_vertex_normals()
     except Exception:
         pass
@@ -276,18 +265,16 @@ def visualize_occlusion_heatmap(upper_file, lower_file, colormap='jet', threshol
     print("- 鼠标滚轮: 缩放")
     print("- 鼠标右键拖动: 平移视图")
     print("- 按 Q 或关闭窗口: 退出")
-    print(f"\n颜色说明 (咬合距离 0-{threshold}mm):")
+    print(f"\n颜色说明 (咬合距离 {vmin}-{vmax}mm):")
     print(f"  红色: 紧密接触 (~0.0 mm)")
     print(f"  黄色/绿色: 中等距离")
-    print(f"  蓝色: 咬合边缘 (~{threshold} mm)")
-    print(f"  灰色: 非咬合区域 (>{threshold} mm)")
     
     # vis.run()
     # vis.destroy_window()
     
     return upper_mesh_colored, lower_mesh_colored, (vmin, vmax)
 
-def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(800,960), 
+def capture_top_to_bottom(mesh, type, vmin, vmax, out_dir, steps=10, img_size=(800,960), 
                           need_colorbar=True, prefix="vertical"):
     """
     沿 Z 轴从上到下截取多张图并保存。
@@ -343,7 +330,8 @@ def capture_top_to_bottom(mesh, type, threshold, out_dir, steps=10, img_size=(80
     if type == "lowerjaw" and need_colorbar:
         # add colorbar - 范围从 -0.5 到 0.5
         fname_with_cbar = os.path.join(out_dir, "heatmap_with_colorbar.png")
-        add_colorbar_to_image(fname, fname_with_cbar, vmin=-threshold, vmax=threshold, colormap=colormap)
+        # add_colorbar_to_image(fname, fname_with_cbar, vmin=-threshold, vmax=threshold, colormap=colormap)
+        add_colorbar_to_image(fname, fname_with_cbar, vmin, vmax, colormap=colormap)
 
     vis.destroy_window()
 
@@ -393,7 +381,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化并可选保存牙颌咬合热力图和从上往下截图序列")
     parser.add_argument("-u", "--upper", default="data/test1_upper.ply", help="Upper jaw PLY file")
     parser.add_argument("-l", "--lower", default="data/test1_lower_final.ply", help="Lower jaw PLY file")
-    parser.add_argument("-t", "--threshold", type=float, default=0.5, help="咬合阈值 mm")
+    parser.add_argument("--vmax", type=float, default=0.5, help="咬合最大距离")
+    parser.add_argument("--vmin", type=float, default=-0.2, help="咬合最小距离（负值表示穿透，默认 -0.1mm）")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
     parser.add_argument("-n", "--out_name", type=str, default="", help="输出图片名字后缀")
@@ -404,7 +393,8 @@ if __name__ == "__main__":
 
     upper_file = args.upper
     lower_file = args.lower
-    threshold = args.threshold
+    vmax = args.vmax
+    vmin = args.vmin
     colormap = args.colormap
     out_dir = args.out_dir
     out_name = args.out_name
@@ -413,16 +403,15 @@ if __name__ == "__main__":
 
     try:
         upper_mesh, lower_mesh, distance_range = visualize_occlusion_heatmap(
-            upper_file, lower_file, colormap, threshold, out_dir=out_dir
-        )
+            upper_file, lower_file, colormap, vmin, vmax, out_dir)
         print("\n可视化完成！")
 
         # 若需要保存从上往下的截图序列（保存并退出）
         # 使用着色后的网格进行截图（上/下均为 open3d mesh）
         print(f"开始保存从上往下的截图...")
-        capture_top_to_bottom(upper_mesh, "upperjaw", threshold, out_dir, 
+        capture_top_to_bottom(upper_mesh, "upperjaw", vmin, vmax, out_dir, 
                               steps=args.vertical_steps, img_size=(860,800))
-        capture_top_to_bottom(lower_mesh, "lowerjaw", threshold, out_dir, 
+        capture_top_to_bottom(lower_mesh, "lowerjaw", vmin, vmax, out_dir, 
                               steps=args.vertical_steps, img_size=(860,800), need_colorbar=need_colorbar)
         print("序列保存完成。")
         
@@ -432,7 +421,7 @@ if __name__ == "__main__":
             lower_img_path = os.path.join(out_dir, "heatmap_with_colorbar.png")
         else:
             lower_img_path = os.path.join(out_dir, "vertical_lowerjaw.png")
-        combined_path = os.path.join(out_dir, "combined_upper_lower_"+out_name+".png")
+        combined_path = os.path.join(out_dir, out_name)
         if os.path.exists(upper_img_path) and os.path.exists(lower_img_path):
             combine_upper_lower_images(upper_img_path, lower_img_path, combined_path)
         else:

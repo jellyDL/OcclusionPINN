@@ -6,7 +6,7 @@ import sys
 
 # 添加父目录到路径以支持跨目录导入
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from vis_occusion_heatmap.vis_heatmap import visualize_occlusion_heatmap
+from vis_occusion_heatmap.vis_heatmap import visualize_occlusion_heatmap, add_colorbar_to_image, str2bool
 import open3d.visualization.gui as gui
 import open3d.visualization.rendering as rendering
 
@@ -18,7 +18,7 @@ def load_mesh(file_path):
     mesh.compute_vertex_normals()
     return mesh
 
-def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, output_dir, out_name):
+def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, vmin, vmax, need_colorbar, colormap, output_dir, out_name):
     """
     使用 GUI 渲染器捕获透明网格的截图
     """
@@ -103,12 +103,23 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, ou
                 output_path = os.path.join(output_dir, f"view_{view_name}_{out_name}.png")
                 scene.scene.scene.render_to_image(lambda img: save_image(img, output_path))
                 print(f"已保存截图: {output_path}")
+                
+                if need_colorbar:
+                    # 添加 colorbar（使用 vis_heatmap.py 中的函数）
+                    output_with_cbar = os.path.join(output_dir, f"view_{view_name}_with_colorbar_{out_name}.png")
+                    add_colorbar_to_image(
+                        output_path, 
+                        output_with_cbar, 
+                        vmin, 
+                        vmax, 
+                        colormap=colormap
+                    )
 
-                view_index[0] += 1
-                if view_index[0] < len(view_names):
-                    app.post_to_main_thread(window, capture_view)
-                else:
-                    app.post_to_main_thread(window, window.close)
+                    view_index[0] += 1
+                    if view_index[0] < len(view_names):
+                        app.post_to_main_thread(window, capture_view)
+                    else:
+                        app.post_to_main_thread(window, window.close)
 
             # 延迟执行以确保渲染完成
             app.run_one_tick()
@@ -122,7 +133,8 @@ def capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, ou
 
     app.run()
     
-def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, colormap, out_dir, out_name):
+    
+def visualize_transparent_jaw(upper_file, lower_file, vmin, vmax, zoom_factor, need_colorbar, colormap, out_dir, out_name):
     """
     可视化上下颌，上颌透明显示
     """ 
@@ -133,11 +145,11 @@ def visualize_transparent_jaw(upper_file, lower_file, threshold, zoom_factor, co
     lower_mesh = load_mesh(lower_file)
     
     upper_mesh, lower_mesh, distance_range = visualize_occlusion_heatmap(
-        upper_file, lower_file, colormap, threshold, out_dir=out_dir
+        upper_file, lower_file, colormap, vmin, vmax, out_dir=out_dir
     )
     
     # 自动截图
-    capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, out_dir, out_name)
+    capture_screenshot_with_transparency(upper_mesh, lower_mesh, zoom_factor, vmin, vmax, need_colorbar, colormap, out_dir, out_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="可视化上下颌咬合状态，上颌透明显示")
@@ -145,10 +157,13 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--lower", default="../data/lower.ply", help="下颌PLY文件路径")
     parser.add_argument("-c", "--case", default="", help="案例名称")
     parser.add_argument("-n", "--name", default="", help="输出名称")
-    parser.add_argument("-t", "--threshold", type=float, default=0.5, help="咬合阈值 mm")
+    parser.add_argument("--vmin", type=float, default=-0.2, help="最小距离值 mm")
+    parser.add_argument("--vmax", type=float, default=0.5, help="最大距离值 mm")
     parser.add_argument("-z", "--zoom_factor", type=float, default=0.95, help="缩放因子：值越小，物体在画面中越大")
     parser.add_argument("--colormap", default="jet", help="colormap name")
     parser.add_argument("--out_dir", default=".", help="输出目录")
+    parser.add_argument("--add_colorbar", type=str2bool, default=False,
+                        help="是否需要colorbar（可传 True/False，默认 True）")
     args = parser.parse_args()
     
     if args.case != "":
@@ -167,7 +182,7 @@ if __name__ == "__main__":
     print("Lower jaw file:", lower)
         
     try:
-        visualize_transparent_jaw(upper, lower,
-                                  args.threshold, args.zoom_factor, args.colormap, args.out_dir, args.name)
+        visualize_transparent_jaw(upper, lower, args.vmin, args.vmax, 
+                        args.zoom_factor, args.add_colorbar, args.colormap, args.out_dir, args.name)
     except Exception as e:
         print(f"错误: {e}")

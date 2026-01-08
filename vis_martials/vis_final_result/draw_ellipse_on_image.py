@@ -67,7 +67,7 @@ if __name__ == "__main__":
     
     COLOR_R = (0,   0, 255)
     # COLOR_G = (0, 139,  46)
-    COLOR_G = (0,110,0)
+    COLOR_G = (0, 110,   0)
     
     # 读取图片
     img = cv2.imread(image_path)

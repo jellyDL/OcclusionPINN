@@ -372,6 +372,15 @@ def main():
             text=add_caption, font_path=None, font_size=font_size, 
             text_color=(0, 0, 0), bg_color=(235, 235, 235), 
             offset_left=1200, offset_top=0, padding_bottom= 50, line_spacing=4)
+        
+    elif args.add_caption == "badcase":
+        font_size = 128
+        add_caption = "Original Input                                       After Optimization                                     Ground Truth"
+        print("\n添加图片下方文字说明...")
+        add_caption_below(image_path=args.output, out_path=args.output,
+            text=add_caption, font_path=None, font_size=font_size, 
+            text_color=(0, 0, 0), bg_color=(235, 235, 235), 
+            offset_left=1000, offset_top=150, padding_bottom= 50, line_spacing=4)
 
     elif "Case" in args.add_caption:
         font_size = 128

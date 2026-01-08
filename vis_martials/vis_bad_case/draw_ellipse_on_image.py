@@ -63,7 +63,11 @@ if __name__ == "__main__":
     # w :1920. h:1720
     
     w = 1920
-    h = 1664
+    h = 1650    
+    
+    COLOR_R = (0,   0, 255)
+    # COLOR_G = (0, 139,  46)
+    COLOR_G = (0,  110,  0)
     
     # 读取图片
     img = cv2.imread(image_path)
@@ -71,29 +75,31 @@ if __name__ == "__main__":
         print(f"错误: 无法读取图片 {image_path}")
         exit(0)
 
+    x_left = 580 # 左侧增加文字后 需要的偏移量
+    x_off = 200
     
     #### LINE 1 ####
-    (x, y) = 400,590
+    (x, y) = 400+x_left,590
     (lr,sr) = 270,120
     angle = -60
-    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+w+x_off, y),   (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+2*(w+x_off), y), (lr,sr), angle,  COLOR_G)
 
-    (x, y) = 1340,540
+    (x, y) = 1340+x_left,540
     (lr,sr) = 320,160
     angle = 75
-    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+w*2, y), (lr,sr), angle,  (87, 139, 46))
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+w+x_off, y),   (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+2*(w+x_off), y), (lr,sr), angle,  COLOR_G)
 
     # #### LINE 2 ####
-    (x, y) = 790,920+h
-    (lr,sr) = 580,240
-    angle = 77
-    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+w, y),   (lr,sr), angle,  (0,   0, 255))
-    img = draw_dashed_ellipse(img, (x+2*w, y), (lr,sr), angle,  (34, 139, 34))
+    (x, y) = 780+x_left,960+h
+    (lr,sr) = 640,240
+    angle = 80
+    img = draw_dashed_ellipse(img, (x, y),     (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+w+x_off, y),   (lr,sr), angle,  COLOR_R)
+    img = draw_dashed_ellipse(img, (x+2*(w+x_off), y), (lr,sr), angle,  COLOR_G)
     
     # #### LINE 3 ####
     # (x, y) = 330,1240+2*h

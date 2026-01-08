@@ -141,8 +141,8 @@ def main():
     parser.add_argument("-o", "--out", type=str, default=None, help="输出下颌 PLY 路径（默认与 lower 同目录，命名为 lower_shifted.stl）")
     parser.add_argument("-d", "--distance_mm", type=float, default=-0.14, help="沿咬合平面反方向的平移量，单位毫米")
     parser.add_argument("-sl", "--shift_left_mm", type=float, default=0.0, help="沿咬合平面左向的平移量，正值向左 (mm)")
-    parser.add_argument("-sf", "--shift_front_mm", type=float, default=0.0, help="沿咬合平面前向的平移量，正值向前 (mm)")
-    parser.add_argument("-t", "--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），默认 5°")
+    parser.add_argument("-sf", "--shift_front_mm", type=float, default=0.0, help="沿咬合平面前向的平移量，正值为下颌向前 (mm)")
+    parser.add_argument("-t", "--tilt_deg", type=float, default=-0.25, help="向左侧倾斜的角度（度），正值为下颌往右倾斜")
     parser.add_argument("-p", "--pitch_deg", type=float, default=0.0, help="前后倾斜的角度（度），正值前部抬起")
     args = parser.parse_args()
 

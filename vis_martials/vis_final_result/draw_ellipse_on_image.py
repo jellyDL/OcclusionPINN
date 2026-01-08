@@ -79,15 +79,15 @@ if __name__ == "__main__":
     x_off = 200
     
     #### LINE 1 ####
-    (x, y) = 490+x_left,660
-    (lr,sr) = 410,170
-    angle = -60
+    (x, y) = 520+x_left,800
+    (lr,sr) = 460,170
+    angle = -65
     img = draw_dashed_ellipse(img, (x, y),             (lr,sr), angle,  COLOR_R)
     img = draw_dashed_ellipse(img, (x+w+x_off, y),     (lr,sr), angle,  COLOR_G)
     img = draw_dashed_ellipse(img, (x+2*(w+x_off), y), (lr,sr), angle,  COLOR_G)
 
-    (x, y) = 1450+x_left,800
-    (lr,sr) = 500,200
+    (x, y) = 1420+x_left,760
+    (lr,sr) = 320,160
     angle = 66
     img = draw_dashed_ellipse(img, (x, y),             (lr,sr), angle,  COLOR_R)
     img = draw_dashed_ellipse(img, (x+w+x_off, y),     (lr,sr), angle,  COLOR_G)

@@ -121,6 +121,77 @@ def add_caption_below(
 	canvas.save(out_path)
 	print(f"✓ 已保存带文字标注图片: {out_path}")
 
+def add_caption_left(
+            image_path: str,
+            out_path: str,
+            text: str,
+            font_path: str | None = None,
+            font_size: int = 32,
+            text_color=(0, 0, 0),
+            bg_color=(255, 255, 255),
+            offset_top: int = 0,
+            offset_left: int = 8,
+            offset_right: int = 8,
+            padding_left: int = 8,
+            line_spacing: int = 4,
+        ):
+            """
+            在图像左方增加文字标注并保存为新图片。
+            参数：
+            - image_path: 输入图片路径
+            - out_path: 输出图片路径
+            - text: 文本内容（支持多行，用 '\n' 分隔）
+            - font_path: 字体路径（ttf/otf/ttc），不传则自动选择系统可缩放字体
+            - font_size: 字号
+            - text_color: 文本颜色 (R,G,B)
+            - bg_color: 新增区域背景色 (R,G,B)
+            - offset_top: 文本相对"原图最上侧"的垂直偏移（像素）
+            - offset_left: 文本相对"原图左侧"的水平偏移（像素）
+            - offset_right: 文本相对"原图右侧"的水平偏移（像素）
+            - padding_left: 文本块左侧额外留白（像素）
+            - line_spacing: 行间距（像素）
+            """
+            img = Image.open(image_path).convert("RGB")
+            W, H = img.size
+
+            font = _resolve_font(font_path, int(font_size))
+
+            draw_tmp = ImageDraw.Draw(img)
+            lines = str(text).split("\n")
+
+            def measure(txt: str):
+                try:
+                    bbox = draw_tmp.textbbox((0, 0), txt if txt else " ", font=font)
+                    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+                except Exception:
+                    return draw_tmp.textsize(txt if txt else " ", font=font)
+
+            line_sizes = [measure(line) for line in lines]
+            line_widths = [w for w, _ in line_sizes]
+            line_heights = [h for _, h in line_sizes]
+            max_line_width = max(line_widths) if line_widths else 0
+            text_block_w = max_line_width + padding_left
+            text_block_h = sum(line_heights) + line_spacing * max(0, len(lines) - 1)
+
+            caption_w = max(0, int(offset_left)) + text_block_w + max(0, int(offset_right))
+            new_W = W + caption_w
+
+            canvas = Image.new("RGB", (new_W, H), bg_color)
+            canvas.paste(img, (caption_w, 0))
+            draw = ImageDraw.Draw(canvas)
+
+            x = max(0, int(offset_left))
+            y = max(0, int(offset_top))
+
+            for i, line in enumerate(lines):
+                lw, lh = measure(line)
+                draw.text((x, y), line, fill=text_color, font=font)
+                y += lh + line_spacing
+
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            canvas.save(out_path)
+            print(f"✓ 已保存带文字标注图片: {out_path}")
+
 
 def combine_images(image_paths, out_path, direction='horizontal', 
                    spacing=0, left_margin=0, right_margin=0, 
@@ -295,12 +366,21 @@ def main():
         
     elif args.add_caption == "final":
         font_size = 128
-        add_caption = "                Original Input                                    After Optimization                                  Ground Truth"
+        add_caption = "Original Input                                    After Optimization                                  Ground Truth"
         print("\n添加图片下方文字说明...")
         add_caption_below(image_path=args.output, out_path=args.output,
-        text=add_caption,
-        font_path=None, font_size=font_size, text_color=(0, 0, 0), bg_color=(255, 255, 255), 
-        offset_left=80, offset_top=50, padding_bottom= 50, line_spacing=4)
+            text=add_caption, font_path=None, font_size=font_size, 
+            text_color=(0, 0, 0), bg_color=(235, 235, 235), 
+            offset_left=1200, offset_top=0, padding_bottom= 50, line_spacing=4)
+
+    elif "Case" in args.add_caption:
+        font_size = 128
+        img_h = 1650
+        top_off = int(img_h/2)
+        add_caption_left(image_path=args.output, out_path=args.output,
+            text=args.add_caption, font_path=None, font_size=font_size, 
+            text_color=(0, 0, 0), bg_color=(235, 235, 235), 
+            offset_top=top_off, offset_left=50, offset_right=100, padding_left=8, line_spacing=4)
 
 if __name__ == "__main__":
     main()
